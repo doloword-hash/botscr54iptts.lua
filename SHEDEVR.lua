@@ -23,52 +23,58 @@ local godModeActive = false
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "XenoMenu_V2"
 screenGui.Parent = player:WaitForChild("PlayerGui")
-screenGui.ResetOnSpawn = false -- ЧТОБЫ НЕ УДАЛЯЛОСЬ ПРИ СМЕРТИ
+screenGui.ResetOnSpawn = false -- Меню не пропадает после смерти
 
 local frame = Instance.new("Frame")
 frame.Name = "MainFrame"
 frame.Size = UDim2.new(0, 220, 0, 430)
 frame.Position = UDim2.new(0.05, 0, 0.2, 0)
-frame.BackgroundColor3 = Color3.fromRGB(10, 10, 10) -- Глубокий черный
+frame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true
 frame.Parent = screenGui
 
--- Закругление углов меню
+-- Закругление углов
 local frameCorner = Instance.new("UICorner")
 frameCorner.CornerRadius = UDim.new(0, 10)
 frameCorner.Parent = frame
 
--- Зеленая обводка меню
+-- Зеленая неоновая обводка
 local frameStroke = Instance.new("UIStroke")
 frameStroke.Color = Color3.fromRGB(0, 255, 100)
 frameStroke.Thickness = 2
-frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 frameStroke.Parent = frame
 
 -- Заголовок
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 40)
 title.BackgroundTransparency = 1
-title.Text = "ROSTICCKKK MENU"
+title.Text = "ROSTICCKK MENU [F3]"
 title.TextColor3 = Color3.fromRGB(0, 255, 100)
-title.TextSize = 18
+title.TextSize = 16
 title.Font = Enum.Font.GothamBold
 title.Parent = frame
 
--- КНОПКА ЗАКРЫТИЯ (КРЕСТИК)
+-- КНОПКА ЗАКРЫТИЯ (теперь просто скрывает)
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 30, 0, 30)
 closeBtn.Position = UDim2.new(1, -35, 0, 5)
 closeBtn.Text = "X"
 closeBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
 closeBtn.BackgroundTransparency = 1
-closeBtn.TextSize = 20
+closeBtn.TextSize = 18
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.Parent = frame
 closeBtn.MouseButton1Click:Connect(function()
-    screenGui:Destroy()
+    frame.Visible = false
+end)
+
+-- ОТКРЫТИЕ/ЗАКРЫТИЕ НА F3
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.F3 then
+        frame.Visible = not frame.Visible
+    end
 end)
 
 -- ФУНКЦИЯ СОЗДАНИЯ КНОПОК
@@ -78,10 +84,9 @@ local function createBtn(text, pos, callback)
     b.Position = UDim2.new(0.075, 0, 0, pos)
     b.Text = text
     b.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    b.TextColor3 = Color3.fromRGB(200, 200, 200)
+    b.TextColor3 = Color3.fromRGB(220, 220, 220)
     b.Font = Enum.Font.GothamSemibold
-    b.TextSize = 13
-    b.AutoButtonColor = true
+    b.TextSize = 12
     b.Parent = frame
 
     local bCorner = Instance.new("UICorner")
@@ -91,23 +96,19 @@ local function createBtn(text, pos, callback)
     local bStroke = Instance.new("UIStroke")
     bStroke.Color = Color3.fromRGB(0, 255, 100)
     bStroke.Thickness = 1
-    bStroke.Transparency = 0.5
+    bStroke.Transparency = 0.6
     bStroke.Parent = b
 
-    -- Эффект при наведении
-    b.MouseEnter:Connect(function() bStroke.Transparency = 0 end)
-    b.MouseLeave:Connect(function() bStroke.Transparency = 0.5 end)
-    
     b.MouseButton1Click:Connect(callback)
     return b
 end
 
--- Создание кнопок
-createBtn("🌪 РЕЖИМ: ТОРНАДО", 50, function() currentState = "Tornado" end)
-createBtn("👥 РЕЖИМ: КЛОН", 95, function() currentState = "Clone" end)
-createBtn("🔄 РЕЖИМ: ВРАЩЕНИЕ", 140, function() currentState = "Spin" end)
+-- Кнопки
+createBtn("🌪️ ТОРНАДО", 50, function() currentState = "Tornado" end)
+createBtn("👥 КЛОН-МОД", 95, function() currentState = "Clone" end)
+createBtn("🔄 ВРАЩЕНИЕ", 140, function() currentState = "Spin" end)
 createBtn("✈️ ПОЛЕТ (W,A,S,D)", 185, function() flyEnabled = not flyEnabled end)
-createBtn("👻 NOCLIP: ВКЛ/ВЫКЛ", 230, function() noclipEnabled = not noclipEnabled end)
+createBtn("👻 NOCLIP", 230, function() noclipEnabled = not noclipEnabled end)
 createBtn("🛡️ GOD MODE", 275, function() 
     godModeActive = not godModeActive
     if godModeActive then 
@@ -115,19 +116,18 @@ createBtn("🛡️ GOD MODE", 275, function()
         humanoid.Health = math.huge 
     end
 end)
-createBtn("⚡ СКОРОСТЬ: 100", 320, function() humanoid.WalkSpeed = 100 end)
-createBtn("🛑 СБРОС ВСЕГО", 365, function() 
+createBtn("⚡ СКОРОСТЬ 100", 320, function() humanoid.WalkSpeed = 100 end)
+createBtn("🛑 СБРОС", 365, function() 
     currentState = "Idle" 
     flyEnabled = false 
     noclipEnabled = false
     godModeActive = false
     humanoid.WalkSpeed = 16 
     humanoid.MaxHealth = 100
-    rootPart.RotVelocity = Vector3.new(0,0,0)
     rootPart.Velocity = Vector3.new(0,0,0)
 end)
 
--- ЛОГИКА (БЕЗ ИЗМЕНЕНИЙ, НО С ПРОВЕРКОЙ ПЕРСОНАЖА)
+-- ЛОГИКА РАБОТЫ (Клоны, Полет, Ноклип)
 task.spawn(function()
     while true do
         if currentState == "Clone" and rootPart then
@@ -170,8 +170,8 @@ RunService.RenderStepped:Connect(function()
         bg.Parent = rootPart
         bg.CFrame = workspace.CurrentCamera.CFrame
         local direction = humanoid.MoveDirection
-        local upVelocity = UserInputService:IsKeyDown(Enum.KeyCode.Space) and 50 or (UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) and -50 or 0)
-        bv.Velocity = (direction * 100) + Vector3.new(0, upVelocity, 0)
+        local up = UserInputService:IsKeyDown(Enum.KeyCode.Space) and 50 or (UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) and -50 or 0)
+        bv.Velocity = (direction * 100) + Vector3.new(0, up, 0)
     else
         bv.Parent = nil
         bg.Parent = nil
