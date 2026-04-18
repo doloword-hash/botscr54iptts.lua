@@ -373,8 +373,20 @@ CreateToggle(tabMisc, "Chat Spammer", "ChatSpam")
 
 -- INJECTS
 CreateSection(tabInjects, "Main Injects")
-CreateButton(tabInjects, "Inject Bot", function() Notify("Injects", "Bot Injected Successfully!", 3) end)
-CreateButton(tabInjects, "Tab Teleport", function() Notify("Injects", "Tab Teleport Loaded!", 3) end)
+CreateButton(tabInjects, "Inject Bot", function()  
+    Notify("Injects", "Bot Injected Successfully!", 3) 
+    
+    -- === ВСТАВЛЯЙ СВОЙ СКРИПТ БОТА НИЖЕ ЭТОЙ СТРОКИ ===
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject1.lua'))()
+    -- === КОНЕЦ ТВОЕГО СКРИПТА ===
+end)
+CreateButton(tabInjects, "Tab Teleport", function()  
+    Notify("Injects", "Tab Teleport Loaded!", 3) 
+    
+    -- === ВСТАВЛЯЙ СВОЙ СКРИПТ ТЕЛЕПОРТА НИЖЕ ЭТОЙ СТРОКИ ===
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject2.lua'))()
+    -- === КОНЕЦ ТВОЕГО СКРИПТА ===
+end)
 
 -- =========================================================
 -- [ЛОГИКА ХАКА И ФУНКЦИИ]
