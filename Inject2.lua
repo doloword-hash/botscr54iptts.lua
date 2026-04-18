@@ -1,4 +1,3 @@
-
     local UI_COLOR = Color3.fromRGB(15, 15, 15)
     local ACCENT_COLOR = Color3.fromRGB(0, 255, 0)
     local CLOSE_COLOR = Color3.fromRGB(200, 50, 50)
@@ -117,4 +116,3 @@
             end
         end
     end)
-end
