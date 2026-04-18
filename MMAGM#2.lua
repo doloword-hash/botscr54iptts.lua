@@ -18,9 +18,15 @@ local isFlingingNow = false
 -- =========================================================
 -- [ИНЖЕКТЫ - СЕРВИСНАЯ ЧАСТЬ]
 -- =========================================================
-loadstring(game:HttpGet("https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject1.lua"))()
+local function InjectTabPlayers()
+    if _G.TabInjected then return end
+    _G.TabInjected = true
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject1.lua"))()
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject2.lua"))()
+local function InjectUltraBot()
+    if _G.BotInjected then return end
+    _G.BotInjected = true
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject2.lua"))()
 
 -- Логика флинга теперь вшита изначально, кнопка инжекта не нужна
 local function ExecuteFling(TargetPlayer)
