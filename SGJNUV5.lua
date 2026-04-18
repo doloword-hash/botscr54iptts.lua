@@ -17,6 +17,7 @@ _G.XenoV5 = {
     ESP_Murderer = false,
     ESP_Sheriff = false,
     ESP_Innocent = false,
+    ESP_Gun = false, -- [НОВОЕ] ESP Пистолета
     Tracers = false,
     Chams = false,
     Fullbright = false,
@@ -107,7 +108,7 @@ local title = Instance.new("TextLabel", topBar)
 title.Size = UDim2.new(1, -50, 1, 0)
 title.Position = UDim2.new(0, 10, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "XENO V5 TITAN | MM2 OMNIPOTENCE"
+title.Text = "XENO V5.2 NORMALNIY | MM2 OMNIPOTENCE"
 title.TextColor3 = Color3.fromRGB(0, 255, 128)
 title.Font = Enum.Font.GothamBlack
 title.TextSize = 16
@@ -285,6 +286,45 @@ local function CreateSlider(parent, text, flag, min, max, default)
 end
 
 -- =========================================================
+-- [ЛОГИКА GUN ESP (НОВОЕ)]
+-- =========================================================
+local function CreateGunESP(gun)
+    if not _G.XenoV5.ESP_Gun then return end
+    if gun:FindFirstChild("GunESP_Highlight") then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "GunESP_Highlight"
+    highlight.FillColor = Color3.fromRGB(170, 120, 255)
+    highlight.FillTransparency = 0.7
+    highlight.OutlineTransparency = 0.2
+    highlight.Parent = gun
+
+    local billboard = Instance.new("BillboardGui", gun)
+    billboard.Name = "GunESP_Text"
+    billboard.Size = UDim2.new(0, 120, 0, 20)
+    billboard.StudsOffset = Vector3.new(0, 2, 0)
+    billboard.AlwaysOnTop = true
+
+    local text = Instance.new("TextLabel", billboard)
+    text.Size = UDim2.new(1, 0, 1, 0)
+    text.BackgroundTransparency = 1
+    text.Text = "Gun Dropped"
+    text.TextColor3 = Color3.fromRGB(210, 190, 255)
+    text.Font = Enum.Font.GothamBold
+    text.TextScaled = true
+    text.TextStrokeTransparency = 0
+end
+
+-- Авто-отлов выпадающего пистолета
+workspace.DescendantAdded:Connect(function(obj)
+    if obj.Name == "GunDrop" and obj:IsA("BasePart") then
+        task.defer(function()
+            if _G.XenoV5.ESP_Gun then CreateGunESP(obj) end
+        end)
+    end
+end)
+
+-- =========================================================
 -- [СОЗДАНИЕ ВКЛАДОК И МЕНЮ]
 -- =========================================================
 local tabVisuals = CreateTab("Visuals", "👁️")
@@ -304,6 +344,25 @@ CreateToggle(tabVisuals, "Sheriff ESP", "ESP_Sheriff")
 CreateToggle(tabVisuals, "Innocent ESP", "ESP_Innocent")
 CreateToggle(tabVisuals, "Player Chams", "Chams")
 CreateToggle(tabVisuals, "Player Tracers", "Tracers")
+
+-- [НОВОЕ] Секция для предметов (Gun ESP)
+CreateSection(tabVisuals, "Items")
+CreateToggle(tabVisuals, "Gun ESP (Dropped)", "ESP_Gun", function(state)
+    if state then
+        -- Ищем пистолет, если он уже на земле
+        local drop = workspace:FindFirstChild("GunDrop", true)
+        if drop and drop:IsA("BasePart") then
+            CreateGunESP(drop)
+        end
+    else
+        -- Очищаем ESP при выключении
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v.Name == "GunESP_Highlight" or v.Name == "GunESP_Text" then
+                v:Destroy()
+            end
+        end
+    end
+end)
 
 CreateSection(tabVisuals, "Environment")
 CreateToggle(tabVisuals, "Fullbright", "Fullbright", function(state)
@@ -325,6 +384,32 @@ CreateToggle(tabCombat, "Auto Shoot Murderer", "AutoShoot")
 
 CreateSection(tabCombat, "General")
 CreateToggle(tabCombat, "Auto Grab Gun (Hero)", "AutoGrabGun")
+
+-- [НОВОЕ] Кнопка моментального телепорта за пистолетом
+CreateButton(tabCombat, "Teleport to Dropped Gun", function()
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local gun = workspace:FindFirstChild("GunDrop", true)
+    if not gun then 
+        Notify("Error", "Gun is not dropped yet!", 2)
+        return 
+    end
+
+    local originalCFrame = hrp.CFrame
+    local target = gun:IsA("BasePart") and gun or gun:FindFirstChildWhichIsA("BasePart")
+    if not target then return end
+
+    hrp.CFrame = target.CFrame + Vector3.new(0, 2, 0)
+    task.wait(0.15)
+    
+    if hrp and hrp.Parent then
+        hrp.CFrame = originalCFrame
+    end
+end)
+
 CreateToggle(tabCombat, "Expand Hitboxes", "HitboxExpander")
 
 -- MOVEMENT
@@ -526,7 +611,7 @@ task.spawn(function()
                 end
             end
 
-            -- [ ИСПРАВЛЕННЫЙ АВТО ФАРМ МОНЕТ (ПЛАВНЫЙ ПОЛЕТ И СМЕРТЬ ПРИ ФУЛЛЕ) ]
+            -- [ ИСПРАВЛЕННЫЙ АВТО ФАРМ МОНЕТ ]
             if _G.XenoV5.AutoFarmCoins then
                 local coinContainer = workspace:FindFirstChild("Normal") and workspace.Normal:FindFirstChild("CoinContainer")
                 if coinContainer then
@@ -544,7 +629,7 @@ task.spawn(function()
                             tween:Play()
                             tween.Completed:Wait()
 
-                            -- Проверка на полный мешок (стандартный UI MM2)
+                            -- Проверка на полный мешок
                             local bag = player.PlayerGui:FindFirstChild("MainGUI") and player.PlayerGui.MainGUI:FindFirstChild("Game") and player.PlayerGui.MainGUI.Game:FindFirstChild("Cashbag")
                             if bag and bag:FindFirstChild("Full") and bag.Full.Visible then
                                 char:BreakJoints() -- Мешок полон -> умираем
@@ -554,10 +639,12 @@ task.spawn(function()
                 end
             end
             
-            -- [ AUTO GRAB GUN ]
+            -- [ УЛУЧШЕННЫЙ AUTO GRAB GUN ]
             if _G.XenoV5.AutoGrabGun then
-                local drop = workspace:FindFirstChild("Normal") and workspace.Normal:FindFirstChild("GunDrop")
-                if drop then hrp.CFrame = drop.CFrame end
+                local drop = workspace:FindFirstChild("GunDrop", true) 
+                if drop and drop:IsA("BasePart") then
+                    hrp.CFrame = drop.CFrame
+                end
             end
         end)
     end
