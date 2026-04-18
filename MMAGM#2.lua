@@ -5,7 +5,7 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
-_G.Xeno_Settings = {
+_G.Xeno_Settings = {    --2500  
     MurdererESP = false,
     SheriffESP = false,
     Aimbot = false,
