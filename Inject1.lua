@@ -1,4 +1,6 @@
-
+local function InjectTabPlayers()
+    if _G.TabInjected then return end
+    _G.TabInjected = true
     -- Ниже идет ТВОЙ оригинальный скрипт бота, я только исправил поиск Убийцы
     local playersService = game:GetService("Players")
     local runService = game:GetService("RunService")
