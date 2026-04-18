@@ -1,6 +1,3 @@
-local function InjectUltraBot()
-    if _G.BotInjected then return end
-    _G.BotInjected = true
 
     -- Ниже идет ТВОЙ оригинальный скрипт бота, я только исправил поиск Убийцы
     local playersService = game:GetService("Players")
