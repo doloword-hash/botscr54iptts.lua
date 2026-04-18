@@ -1,6 +1,3 @@
-local function InjectTabPlayers()
-    if _G.TabInjected then return end
-    _G.TabInjected = true
 
     local UI_COLOR = Color3.fromRGB(15, 15, 15)
     local ACCENT_COLOR = Color3.fromRGB(0, 255, 0)
