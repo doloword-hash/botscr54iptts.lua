@@ -1,7 +1,3 @@
-local function InjectTabPlayers()
-    if _G.TabInjected then return end
-    _G.TabInjected = true
-    -- Ниже идет ТВОЙ оригинальный скрипт бота, я только исправил поиск Убийцы
     local playersService = game:GetService("Players")
     local runService = game:GetService("RunService")
     local UIS = game:GetService("UserInputService")
@@ -228,4 +224,3 @@ local function InjectTabPlayers()
             hrp.CFrame = hrp.CFrame:Lerp(CFrame.lookAt(hrp.Position, hrp.Position + Vector3.new(currentDirection.X, 0, currentDirection.Z)), 0.2)
         end
     end)
-end
