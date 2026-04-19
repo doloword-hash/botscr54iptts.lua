@@ -25,6 +25,11 @@ _G.XenoV5 = {
     AlwaysNight = false,
     FOV = 70,
     
+	-- Флинг (Ultimate)
+    Fling = false,           -- Обычный (на всех)
+    FlingMurderer = false,   -- Только на убийцу
+    FlingSheriff = false,    -- Только на шерифа
+
     -- Combat
     GunAimbot = false,
     AutoShoot = false,
@@ -50,6 +55,7 @@ _G.XenoV5 = {
     WaterWalk = false,
     
     -- Power & Troll
+	SheriffAutoKill = false, -- Авто ТП и убийство
     Tornado = false,
     Fling = false,
     ChatSpam = false,
@@ -373,23 +379,33 @@ CreateToggle(tabVisuals, "Always Day", "AlwaysDay")
 CreateToggle(tabVisuals, "Always Night", "AlwaysNight")
 CreateSlider(tabVisuals, "Field of View", "FOV", 70, 120, 70)
 
--- COMBAT
+-- =========================================================
+-- [ SECTION: COMBAT (UPDATED) ]
+-- =========================================================
+
+-- --- РАЗДЕЛ MURDERER ---
 CreateSection(tabCombat, "Murderer")
 CreateToggle(tabCombat, "Kill Aura (Knife Required)", "MurdererAura")
 CreateSlider(tabCombat, "Kill Aura Range", "KillAuraRange", 1, 100, 20)
+CreateToggle(tabCombat, "Fling Murderer (Ultimate)", "FlingMurderer") -- Новое
 
+-- --- РАЗДЕЛ SHERIFF ---
 CreateSection(tabCombat, "Sheriff")
 CreateToggle(tabCombat, "Gun Aimbot", "GunAimbot")
 CreateToggle(tabCombat, "Auto Shoot Murderer", "AutoShoot")
+CreateToggle(tabCombat, "Sheriff: Auto TP & Kill", "SheriffAutoKill") -- Новое
+CreateToggle(tabCombat, "Fling Sheriff (Ultimate)", "FlingSheriff") -- Новое
 
-CreateSection(tabCombat, "General")
-CreateToggle(tabCombat, "Auto Grab Gun (Hero)", "AutoGrabGun")
+-- --- РАЗДЕЛ GENERAL & FLING ---
+CreateSection(tabCombat, "General & Fling")
+CreateToggle(tabCombat, "Ultimate Fling (ALL)", "Fling") -- Тот самый мощный флинг
+CreateToggle(tabCombat, "Auto Grab Gun (Safe)", "AutoGrabGun")
+CreateToggle(tabCombat, "Expand Hitboxes", "HitboxExpander")
 
--- [НОВОЕ] Кнопка моментального телепорта за пистолетом
-CreateButton(tabCombat, "Teleport to Dropped Gun", function()
+-- [УЛУЧШЕННАЯ] Кнопка моментального безопасного ТП к пистолету
+CreateButton(tabCombat, "Safe TP to Dropped Gun", function()
     local char = player.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
     local gun = workspace:FindFirstChild("GunDrop", true)
@@ -398,19 +414,26 @@ CreateButton(tabCombat, "Teleport to Dropped Gun", function()
         return 
     end
 
+    -- Проверка на убийцу (не прыгаем, если он в радиусе 30)
+    local mdr = GetMurderer()
+    if mdr and mdr:FindFirstChild("HumanoidRootPart") then
+        local dist = (mdr.HumanoidRootPart.Position - gun.Position).Magnitude
+        if dist < 30 then
+            Notify("Danger", "Murderer is too close to the gun!", 3)
+            return
+        end
+    end
+
     local originalCFrame = hrp.CFrame
     local target = gun:IsA("BasePart") and gun or gun:FindFirstChildWhichIsA("BasePart")
-    if not target then return end
-
-    hrp.CFrame = target.CFrame + Vector3.new(0, 2, 0)
-    task.wait(0.15)
     
-    if hrp and hrp.Parent then
+    if target then
+        Notify("Action", "Grabbing gun...", 1)
+        hrp.CFrame = target.CFrame + Vector3.new(0, 2, 0)
+        task.wait(0.5) -- Чуть увеличил время, чтобы сервер успел засчитать подбор
         hrp.CFrame = originalCFrame
     end
 end)
-
-CreateToggle(tabCombat, "Expand Hitboxes", "HitboxExpander")
 
 -- MOVEMENT
 CreateSection(tabMovement, "Speed & Flight")
@@ -550,10 +573,78 @@ end
 
 -- RENDERSTEPPED LOOP (Aimbots, Visuals, Spin)
 local spinAngle = 0
+local function GetMurderer()
+    for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+        if p.Character and (p.Character:FindFirstChild("Knife") or p.Backpack:FindFirstChild("Knife")) then
+            return p.Character
+        end
+    end
+    return nil
+end
+
+local function GetSheriff()
+    for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+        if p.Character and (p.Character:FindFirstChild("Gun") or p.Backpack:FindFirstChild("Gun")) then
+            return p.Character
+        end
+    end
+    return nil
+end
+-- [ ОСНОВНОЙ ЦИКЛ ]
+local function SkidFling(TargetPlayer)
+    local char = player.Character
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    
+    local tchar = TargetPlayer.Character
+    local thrp = tchar and tchar:FindFirstChild("HumanoidRootPart")
+    local thum = tchar and tchar:FindFirstChildOfClass("Humanoid")
+
+    if hrp and thrp and thum then
+        local oldPos = hrp.CFrame
+        local startTime = tick()
+        
+        -- [ СИЛОВЫЕ УСТАНОВКИ ИЗ ОРИГИНАЛА ]
+        local fly = Instance.new("BodyVelocity")
+        fly.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        fly.Velocity = Vector3.new(0, 0, 0)
+        fly.Parent = hrp
+
+        hum.PlatformStand = true -- Отключаем анимации, чтобы физика работала на 100%
+
+        -- Цикл атаки
+        repeat
+            task.wait()
+            -- Создаем хаотичное движение вокруг цели
+            local rot = CFrame.Angles(math.random(-360, 360), math.random(-360, 360), math.random(-360, 360))
+            local pos = thrp.CFrame * CFrame.new(0, 1.5, 0) * rot
+            
+            hrp.CFrame = pos
+            
+            -- Накачка импульса (Те самые 9e7)
+            hrp.Velocity = Vector3.new(9e7, 9e7, 9e7)
+            hrp.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+            
+            -- Проверка: если цель улетела очень далеко или умерла
+        until not TargetPlayer or not tchar or not thrp or (thrp.Position - hrp.Position).Magnitude > 500 or tick() - startTime > 2 or not _G.XenoV5.FlingActive
+
+        -- [ ОЧИСТКА ]
+        fly:Destroy()
+        hum.PlatformStand = false
+        hrp.Velocity = Vector3.new(0, 0, 0)
+        hrp.RotVelocity = Vector3.new(0, 0, 0)
+        
+        -- Плавный возврат
+        for i = 1, 5 do
+            hrp.CFrame = oldPos
+            task.wait()
+        end
+    end
+end
 RunService.RenderStepped:Connect(function()
     pcall(function()
-        UpdateVisuals()
-        HandleFly()
+        if UpdateVisuals then UpdateVisuals() end
+        if HandleFly then HandleFly() end
         
         if _G.XenoV5.AlwaysDay then Lighting.ClockTime = 12 end
         if _G.XenoV5.AlwaysNight then Lighting.ClockTime = 0 end
@@ -563,18 +654,22 @@ RunService.RenderStepped:Connect(function()
         if not char then return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
         local hum = char:FindFirstChild("Humanoid")
+        if not hrp or not hum then return end
         
         if _G.XenoV5.SpeedHack and hum then hum.WalkSpeed = _G.XenoV5.SpeedValue end
         if _G.XenoV5.Spin and hrp then hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(30), 0) end
         
-        if char:FindFirstChild("Gun") and mdr and mdr.Character and mdr.Character:FindFirstChild("HumanoidRootPart") then
-            if _G.XenoV5.GunAimbot then camera.CFrame = CFrame.new(camera.CFrame.Position, mdr.Character.HumanoidRootPart.Position) end
-            if _G.XenoV5.AutoShoot then mouse1click() end
+        local mdr = GetMurderer()
+        local shr = GetSheriff()
+        
+        if char:FindFirstChild("Gun") and mdr and mdr:FindFirstChild("HumanoidRootPart") then
+            if _G.XenoV5.GunAimbot then camera.CFrame = CFrame.new(camera.CFrame.Position, mdr.HumanoidRootPart.Position) end
+            if _G.XenoV5.AutoShoot then if mouse1click then mouse1click() end end
         end
         
-        if _G.XenoV5.Tornado and mdr and mdr.Character and mdr.Character:FindFirstChild("HumanoidRootPart") and hrp then
-            spinAngle = spinAngle + 0.2
-            local mRoot = mdr.Character.HumanoidRootPart
+        if _G.XenoV5.Tornado and mdr and mdr:FindFirstChild("HumanoidRootPart") and hrp then
+            spinAngle = (spinAngle or 0) + 0.2
+            local mRoot = mdr.HumanoidRootPart
             local orbit = mRoot.Position + Vector3.new(math.cos(spinAngle)*15, 5, math.sin(spinAngle)*15)
             hrp.CFrame = CFrame.lookAt(orbit, mRoot.Position); hrp.Velocity = Vector3.new(0,0,0)
         end
@@ -582,8 +677,70 @@ RunService.RenderStepped:Connect(function()
         if _G.XenoV5.FakeLag and hrp then
             if math.random(1, 10) > 8 then hrp.Anchored = true; task.wait(0.1); hrp.Anchored = false end
         end
-        
-        if _G.XenoV5.AntiFling and hrp then hrp.Velocity = Vector3.new(0, hrp.Velocity.Y, 0) end
+
+        -- [ ELITE ANTI-FLING ]
+        if _G.XenoV5.AntiFling then
+            for _, v in pairs(game:GetService("Players"):GetPlayers()) do
+                if v ~= player and v.Character then
+                    for _, part in pairs(v.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                            part.Velocity = Vector3.new(0, 0, 0)
+                            part.RotVelocity = Vector3.new(0, 0, 0)
+                        end
+                    end
+                end
+            end
+        end
+
+        -- [ ULTIMATE FLING (ИЗ ТВОЕЙ ССЫЛКИ) ]
+        local targetFling = nil
+        if _G.XenoV5.FlingMurderer and mdr then targetFling = mdr
+        elseif _G.XenoV5.FlingSheriff and shr then targetFling = shr end
+
+        if _G.XenoV5.Fling or targetFling then
+            hum.PlatformStand = true -- Делаем персонажа снарядом
+            
+            -- Добавляем хаотичный импульс (BodyThrust)
+            local thrust = hrp:FindFirstChild("UltBodyThrust") or Instance.new("BodyThrust", hrp)
+            thrust.Name = "UltBodyThrust"
+            thrust.Force = Vector3.new(9999, 9999, 9999)
+            thrust.Location = hrp.Position + Vector3.new(0, 1.5, 0)
+            
+            -- Бешеное вращение (BodyAngularVelocity)
+            local spin = hrp:FindFirstChild("UltAngularVel") or Instance.new("BodyAngularVelocity", hrp)
+            spin.Name = "UltAngularVel"
+            spin.AngularVelocity = Vector3.new(0, 99999, 0)
+            spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            
+            -- Убираем трение
+            for _, part in pairs(char:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
+                    part.CanCollide = false
+                end
+            end
+
+            -- Авто-наведение для ролевого флинга
+            if targetFling and targetFling:FindFirstChild("HumanoidRootPart") then
+                hrp.CFrame = targetFling.HumanoidRootPart.CFrame
+            end
+        else
+            -- Чистим всё, если флинг выключен
+            if hrp:FindFirstChild("UltBodyThrust") then hrp.UltBodyThrust:Destroy() end
+            if hrp:FindFirstChild("UltAngularVel") then hrp.UltAngularVel:Destroy() end
+            hum.PlatformStand = false
+        end
+
+        -- [ SHERIFF AUTO KILL ]
+        if _G.XenoV5.SheriffAutoKill and mdr and mdr:FindFirstChild("HumanoidRootPart") then
+            if char:FindFirstChild("Gun") or player.Backpack:FindFirstChild("Gun") then
+                hrp.CFrame = mdr.HumanoidRootPart.CFrame * CFrame.new(0, 5, -12)
+                camera.CFrame = CFrame.new(camera.CFrame.Position, mdr.HumanoidRootPart.Position)
+                if mouse1click then mouse1click() end
+            end
+        end
+
     end)
 end)
 
@@ -639,11 +796,42 @@ task.spawn(function()
                 end
             end
             
-            -- [ УЛУЧШЕННЫЙ AUTO GRAB GUN ]
-            if _G.XenoV5.AutoGrabGun then
-                local drop = workspace:FindFirstChild("GunDrop", true) 
+            -- [ ПРОДВИНУТЫЙ AUTO GRAB GUN ]
+            if _G.XenoV5.AutoGrabGun and not _G.IsTeleporting then
+                local drop = workspace:FindFirstChild("GunDrop", true)
+                
                 if drop and drop:IsA("BasePart") then
-                    hrp.CFrame = drop.CFrame
+                    -- 1. Проверяем, где убийца
+                    local murderer = nil
+                    for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+                        -- Ищем игрока, у которого в руках или в рюкзаке нож
+                        if p.Character and (p.Character:FindFirstChild("Knife") or p.Backpack:FindFirstChild("Knife")) then
+                            murderer = p.Character
+                            break
+                        end
+                    end
+
+                    -- 2. Проверяем дистанцию (безопасно ли?)
+                    local isSafe = true
+                    if murderer and murderer:FindFirstChild("HumanoidRootPart") then
+                        local distToGun = (murderer.HumanoidRootPart.Position - drop.Position).Magnitude
+                        if distToGun < 10 then -- Если убийца ближе 35 метров к пушке — не прыгаем
+                            isSafe = false
+                        end
+                    end
+
+                    -- 3. Если безопасно, выполняем маневр
+                    if isSafe then
+                        _G.IsTeleporting = true -- Включаем "замок"
+                        local oldPos = hrp.CFrame -- Запоминаем твою позицию
+                        
+                        hrp.CFrame = drop.CFrame -- ТП к пушке
+                        task.wait(0.2) -- Ждем ровно 1 секунду
+                        
+                        hrp.CFrame = oldPos -- ТП обратно на старое место
+                        task.wait(0.5) -- Небольшая пауза перед следующей попыткой
+                        _G.IsTeleporting = false -- Выключаем "замок"
+                    end
                 end
             end
         end)
