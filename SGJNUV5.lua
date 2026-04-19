@@ -114,7 +114,7 @@ local title = Instance.new("TextLabel", topBar)
 title.Size = UDim2.new(1, -50, 1, 0)
 title.Position = UDim2.new(0, 10, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "XENO V5.2 NORMALNIY | MM2 OMNIPOTENCE"
+title.Text = "XENO V5.2 NAVALNIY | MM2 "
 title.TextColor3 = Color3.fromRGB(0, 255, 128)
 title.Font = Enum.Font.GothamBlack
 title.TextSize = 16
@@ -375,8 +375,8 @@ CreateToggle(tabVisuals, "Fullbright", "Fullbright", function(state)
     Lighting.Ambient = state and Color3.new(1, 1, 1) or origAmbient
     Lighting.Brightness = state and 2 or origBrightness
 end)
-CreateToggle(tabVisuals, "Always Day", "AlwaysDay")
-CreateToggle(tabVisuals, "Always Night", "AlwaysNight")
+CreateToggle(tabVisuals, "AlwaysDay", "AlwaysDay")
+CreateToggle(tabVisuals, "AlwaysNight", "AlwaysNight")
 CreateSlider(tabVisuals, "Field of View", "FOV", 70, 120, 70)
 
 -- =========================================================
@@ -387,14 +387,14 @@ CreateSlider(tabVisuals, "Field of View", "FOV", 70, 120, 70)
 CreateSection(tabCombat, "Murderer")
 CreateToggle(tabCombat, "Kill Aura (Knife Required)", "MurdererAura")
 CreateSlider(tabCombat, "Kill Aura Range", "KillAuraRange", 1, 100, 20)
-CreateToggle(tabCombat, "Fling Murderer (Ultimate)", "FlingMurderer") -- Новое
+CreateToggle(tabCombat, "Fling Sheriff", "FlingMurderer") -- Новое
 
 -- --- РАЗДЕЛ SHERIFF ---
 CreateSection(tabCombat, "Sheriff")
 CreateToggle(tabCombat, "Gun Aimbot", "GunAimbot")
 CreateToggle(tabCombat, "Auto Shoot Murderer", "AutoShoot")
-CreateToggle(tabCombat, "Sheriff: Auto TP & Kill", "SheriffAutoKill") -- Новое
-CreateToggle(tabCombat, "Fling Sheriff (Ultimate)", "FlingSheriff") -- Новое
+CreateToggle(tabCombat, "TP To Murder", "SheriffAutoKill") -- Новое
+CreateToggle(tabCombat, "Fling Murder", "FlingSheriff") -- Новое
 
 -- --- РАЗДЕЛ GENERAL & FLING ---
 CreateSection(tabCombat, "General & Fling")
