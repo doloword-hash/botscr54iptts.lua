@@ -10,7 +10,7 @@ local camera = workspace.CurrentCamera
 local mouse = player:GetMouse()
 
 -- =========================================================
--- [ГЛОБАЛЬНЫЕ НАСТРОЙКИ XENO V5 TITAN PRO]
+-- [ГЛОБАЛЬНЫЕ НАСТРОЙКИ XENO V5 TITAN PR]
 -- =========================================================
 _G.XenoV5 = {
     ESP_Murderer = false, ESP_Sheriff = false, ESP_Innocent = false, ESP_Gun = false,
