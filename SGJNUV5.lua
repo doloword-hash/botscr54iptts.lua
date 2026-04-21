@@ -489,18 +489,14 @@ CreateButton(tabInjects, "Inject Bot", function()
     -- === КОНЕЦ ТВОЕГО СКРИПТА ===
 end)
 CreateButton(tabInjects, "Tab Teleport", function()  
-    Notify("Injects", "Tab Teleport Loaded!", 3) 
+    Notify("Injects", "Tab Teleport Injected Successfully", 3) 
     
     -- === ВСТАВЛЯЙ СВОЙ СКРИПТ ТЕЛЕПОРТА НИЖЕ ЭТОЙ СТРОКИ ===
     loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject2.lua'))()
     -- === КОНЕЦ ТВОЕГО СКРИПТА ===
 end)
 CreateButton(flingInjects, "NAVALNIY fling", function()  
-    Notify("Injects", "Tab Teleport Loaded!", 3) 
-    
-    -- === ВСТАВЛЯЙ СВОЙ СКРИПТ ТЕЛЕПОРТА НИЖЕ ЭТОЙ СТРОКИ ===
-    loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/KILASIKFLING.lua'))()
-    -- === КОНЕЦ ТВОЕГО СКРИПТА ===
+    Notify("Injects", "NAVALNIY fling Injected Successfully!", 3) 
 end)
 
 -- =========================================================
