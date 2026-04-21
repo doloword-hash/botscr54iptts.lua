@@ -495,6 +495,13 @@ CreateButton(tabInjects, "Tab Teleport", function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject2.lua'))()
     -- === КОНЕЦ ТВОЕГО СКРИПТА ===
 end)
+CreateButton(flingInjects, "NAVALNIY fling", function()  
+    Notify("Injects", "Tab Teleport Loaded!", 3) 
+    
+    -- === ВСТАВЛЯЙ СВОЙ СКРИПТ ТЕЛЕПОРТА НИЖЕ ЭТОЙ СТРОКИ ===
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/KILASIKFLING.lua'))()
+    -- === КОНЕЦ ТВОЕГО СКРИПТА ===
+end)
 
 -- =========================================================
 -- [ЛОГИКА ХАКА И ФУНКЦИИ]
