@@ -13,54 +13,13 @@ local mouse = player:GetMouse()
 -- [ГЛОБАЛЬНЫЕ НАСТРОЙКИ XENO V5 TITAN PRO]
 -- =========================================================
 _G.XenoV5 = {
-    -- Visuals
-    ESP_Murderer = false,
-    ESP_Sheriff = false,
-    ESP_Innocent = false,
-    ESP_Gun = false, -- [НОВОЕ] ESP Пистолета
-    Tracers = false,
-    Chams = false,
-    Fullbright = false,
-    AlwaysDay = false,
-    AlwaysNight = false,
-    FOV = 70,
-    
-	-- Флинг (Ultimate)
-    Fling = false,           -- Обычный (на всех)
-    FlingMurderer = false,   -- Только на убийцу
-    FlingSheriff = false,    -- Только на шерифа
-
-    -- Combat
-    GunAimbot = false,
-    AutoShoot = false,
-    AutoGrabGun = false,
-    MurdererAura = false,
-    KillAuraRange = 20,
-    HitboxExpander = false,
-    
-    -- Movement
-    SpeedHack = false,
-    SpeedValue = 25,
-    InfJump = false,
-    Noclip = false,
-    Fly = false,
-    FlySpeed = 50,
-    Spin = false,
-    AntiFling = false,
-    CtrlClickTP = false,
-    
-    -- World & Farming
-    AutoFarmCoins = false,
-    RemoveDoors = false,
-    WaterWalk = false,
-    
-    -- Power & Troll
-	SheriffAutoKill = false, -- Авто ТП и убийство
-    Tornado = false,
-    Fling = false,
-    ChatSpam = false,
-    SpamText = "Xeno V5 Titan dominates this server!",
-    FakeLag = false
+    ESP_Murderer = false, ESP_Sheriff = false, ESP_Innocent = false, ESP_Gun = false,
+    Tracers = false, Chams = false, Fullbright = false, AlwaysDay = false, AlwaysNight = false, FOV = 70,
+    Fling = false, FlingMurderer = false, FlingSheriff = false,
+    GunAimbot = false, AutoShoot = false, AutoGrabGun = false, MurdererAura = false, KillAuraRange = 20, HitboxExpander = false,
+    SpeedHack = false, SpeedValue = 25, InfJump = false, Noclip = false, Fly = false, FlySpeed = 50, Spin = false, AntiFling = false, CtrlClickTP = false,
+    AutoFarmCoins = false, RemoveDoors = false, WaterWalk = false,
+    SheriffAutoKill = false, Tornado = false, ChatSpam = false, SpamText = "Xeno V5 Titan dominates this server!", FakeLag = false
 }
 
 local origAmbient = Lighting.Ambient
@@ -100,11 +59,11 @@ main.BorderSizePixel = 0
 main.ClipsDescendants = true
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 8)
 
+-- Фирменная зеленая обводка
 local stroke = Instance.new("UIStroke", main)
 stroke.Color = Color3.fromRGB(0, 255, 128)
 stroke.Thickness = 2
 
--- ЗАГОЛОВОК И DRAG
 local topBar = Instance.new("Frame", main)
 topBar.Size = UDim2.new(1, 0, 0, 35)
 topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -147,26 +106,10 @@ closeBtn.Font = Enum.Font.GothamBlack
 closeBtn.TextSize = 18
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
--- Дополнительный инжект (Кнопка)
-local ExtraInjectBtn = Instance.new("TextButton")
-ExtraInjectBtn.Name = "ExtraInjectBtn"
-ExtraInjectBtn.Parent = MainFrame -- Привязываем к главному окну
-ExtraInjectBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-ExtraInjectBtn.BorderSizePixel = 0
--- ВНИМАНИЕ: Если кнопка не видна, измени 360 на другое число (например, 200)
-ExtraInjectBtn.Position = UDim2.new(0, 10, 0, 360) 
-ExtraInjectBtn.Size = UDim2.new(1, -20, 0, 30)
-ExtraInjectBtn.Font = Enum.Font.SourceSansBold
-ExtraInjectBtn.Text = "EXTRA INJECT SLOT"
-ExtraInjectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ExtraInjectBtn.TextSize = 14
-ExtraInjectBtn.ZIndex = 5 -- Чтобы кнопка была поверх всего
-
 local ExtraCorner = Instance.new("UICorner")
 ExtraCorner.CornerRadius = UDim.new(0, 4)
 ExtraCorner.Parent = ExtraInjectBtn
 
--- КОНТЕЙНЕРЫ
 local sidebar = Instance.new("Frame", main)
 sidebar.Size = UDim2.new(0, 140, 1, -35)
 sidebar.Position = UDim2.new(0, 0, 0, 35)
@@ -183,9 +126,6 @@ local tabLayout = Instance.new("UIListLayout", sidebar)
 tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 tabLayout.Padding = UDim.new(0, 2)
 
--- =========================================================
--- [ГЕНЕРАТОР ЭЛЕМЕНТОВ UI]
--- =========================================================
 local function CreateTab(name, icon)
     local btn = Instance.new("TextButton", sidebar)
     btn.Size = UDim2.new(1, 0, 0, 35)
@@ -310,9 +250,6 @@ local function CreateSlider(parent, text, flag, min, max, default)
     plusBtn.MouseButton1Click:Connect(function() update(1) end)
 end
 
--- =========================================================
--- [ЛОГИКА GUN ESP (НОВОЕ)]
--- =========================================================
 local function CreateGunESP(gun)
     if not _G.XenoV5.ESP_Gun then return end
     if gun:FindFirstChild("GunESP_Highlight") then return end
@@ -340,7 +277,6 @@ local function CreateGunESP(gun)
     text.TextStrokeTransparency = 0
 end
 
--- Авто-отлов выпадающего пистолета
 workspace.DescendantAdded:Connect(function(obj)
     if obj.Name == "GunDrop" and obj:IsA("BasePart") then
         task.defer(function()
@@ -349,9 +285,6 @@ workspace.DescendantAdded:Connect(function(obj)
     end
 end)
 
--- =========================================================
--- [СОЗДАНИЕ ВКЛАДОК И МЕНЮ]
--- =========================================================
 local tabVisuals = CreateTab("Visuals", "👁️")
 local tabCombat = CreateTab("Combat", "⚔️")
 local tabMovement = CreateTab("Movement", "🏃")
@@ -370,21 +303,14 @@ CreateToggle(tabVisuals, "Innocent ESP", "ESP_Innocent")
 CreateToggle(tabVisuals, "Player Chams", "Chams")
 CreateToggle(tabVisuals, "Player Tracers", "Tracers")
 
--- [НОВОЕ] Секция для предметов (Gun ESP)
 CreateSection(tabVisuals, "Items")
 CreateToggle(tabVisuals, "Gun ESP (Dropped)", "ESP_Gun", function(state)
     if state then
-        -- Ищем пистолет, если он уже на земле
         local drop = workspace:FindFirstChild("GunDrop", true)
-        if drop and drop:IsA("BasePart") then
-            CreateGunESP(drop)
-        end
+        if drop and drop:IsA("BasePart") then CreateGunESP(drop) end
     else
-        -- Очищаем ESP при выключении
         for _, v in pairs(workspace:GetDescendants()) do
-            if v.Name == "GunESP_Highlight" or v.Name == "GunESP_Text" then
-                v:Destroy()
-            end
+            if v.Name == "GunESP_Highlight" or v.Name == "GunESP_Text" then v:Destroy() end
         end
     end
 end)
@@ -398,49 +324,35 @@ CreateToggle(tabVisuals, "AlwaysDay", "AlwaysDay")
 CreateToggle(tabVisuals, "AlwaysNight", "AlwaysNight")
 CreateSlider(tabVisuals, "Field of View", "FOV", 70, 120, 70)
 
--- =========================================================
--- [ SECTION: COMBAT (UPDATED) ]
--- =========================================================
-
--- --- РАЗДЕЛ MURDERER ---
+-- COMBAT
 CreateSection(tabCombat, "Murderer")
 CreateToggle(tabCombat, "Kill Aura (Knife Required)", "MurdererAura")
 CreateSlider(tabCombat, "Kill Aura Range", "KillAuraRange", 1, 100, 20)
-CreateToggle(tabCombat, "Fling Sheriff", "FlingMurderer") -- Новое
+CreateToggle(tabCombat, "Fling Sheriff", "FlingMurderer")
 
--- --- РАЗДЕЛ SHERIFF ---
 CreateSection(tabCombat, "Sheriff")
 CreateToggle(tabCombat, "Gun Aimbot", "GunAimbot")
 CreateToggle(tabCombat, "Auto Shoot Murderer", "AutoShoot")
-CreateToggle(tabCombat, "TP To Murder", "SheriffAutoKill") -- Новое
-CreateToggle(tabCombat, "Fling Murder", "FlingSheriff") -- Новое
+CreateToggle(tabCombat, "TP To Murder", "SheriffAutoKill")
+CreateToggle(tabCombat, "Fling Murder", "FlingSheriff")
 
--- --- РАЗДЕЛ GENERAL & FLING ---
 CreateSection(tabCombat, "General & Fling")
-CreateToggle(tabCombat, "Ultimate Fling (ALL)", "Fling") -- Тот самый мощный флинг
+CreateToggle(tabCombat, "Ultimate Fling (ALL)", "Fling")
 CreateToggle(tabCombat, "Auto Grab Gun (Safe)", "AutoGrabGun")
 CreateToggle(tabCombat, "Expand Hitboxes", "HitboxExpander")
 
--- [УЛУЧШЕННАЯ] Кнопка моментального безопасного ТП к пистолету
 CreateButton(tabCombat, "Safe TP to Dropped Gun", function()
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
     local gun = workspace:FindFirstChild("GunDrop", true)
-    if not gun then 
-        Notify("Error", "Gun is not dropped yet!", 2)
-        return 
-    end
+    if not gun then Notify("Error", "Gun is not dropped yet!", 2); return end
 
-    -- Проверка на убийцу (не прыгаем, если он в радиусе 30)
     local mdr = GetMurderer()
     if mdr and mdr:FindFirstChild("HumanoidRootPart") then
         local dist = (mdr.HumanoidRootPart.Position - gun.Position).Magnitude
-        if dist < 30 then
-            Notify("Danger", "Murderer is too close to the gun!", 3)
-            return
-        end
+        if dist < 30 then Notify("Danger", "Murderer is too close to the gun!", 3); return end
     end
 
     local originalCFrame = hrp.CFrame
@@ -449,7 +361,7 @@ CreateButton(tabCombat, "Safe TP to Dropped Gun", function()
     if target then
         Notify("Action", "Grabbing gun...", 1)
         hrp.CFrame = target.CFrame + Vector3.new(0, 2, 0)
-        task.wait(0.5) -- Чуть увеличил время, чтобы сервер успел засчитать подбор
+        task.wait(0.5)
         hrp.CFrame = originalCFrame
     end
 end)
@@ -500,25 +412,23 @@ CreateToggle(tabMisc, "Chat Spammer", "ChatSpam")
 
 -- INJECTS
 CreateSection(tabInjects, "Main Injects")
+
 CreateButton(tabInjects, "Inject Bot", function()  
     Notify("Injects", "Bot Injected Successfully!", 3) 
-    
-    -- === ВСТАВЛЯЙ СВОЙ СКРИПТ БОТА НИЖЕ ЭТОЙ СТРОКИ ===
     loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject1.lua'))()
-    -- === КОНЕЦ ТВОЕГО СКРИПТА ===
 end)
+
 CreateButton(tabInjects, "Tab Teleport", function()  
-    Notify("Injects", "Tab Teleport Injected Successfully", 3) 
-    
-    -- === ВСТАВЛЯЙ СВОЙ СКРИПТ ТЕЛЕПОРТА НИЖЕ ЭТОЙ СТРОКИ ===
+    Notify("Injects", "Tab Teleport Injected Successfully!", 3) 
     loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject2.lua'))()
-    -- === КОНЕЦ ТВОЕГО СКРИПТА ===
 end)
-ExtraInjectBtn.MouseButton1Click:Connect(function()
-    -- Сюда вставляй код, который хочешь запустить
-    Message("INJECTED", "Additional function executed!")
-	loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/KILASIKFLING.lua'))()
+
+-- === ТВОЙ НОВЫЙ ТРЕТИЙ ИНЖЕКТ ===
+CreateButton(tabInjects, "Fling Script", function()  
+    Notify("Injects", "Fling Injected Successfully!", 3) 
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/KILASIKFLING.lua'))()
 end)
+
 -- =========================================================
 -- [ЛОГИКА ХАКА И ФУНКЦИИ]
 -- =========================================================
@@ -527,7 +437,6 @@ local mdr, shf = nil, nil
 local flying = false
 local flyBv, flyBg
 
--- FLY FUNC
 local function HandleFly()
     local char = player.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
@@ -553,7 +462,6 @@ local function HandleFly()
     end
 end
 
--- ESP & CHAMS
 local function UpdateVisuals()
     mdr = nil; shf = nil
     for _, p in pairs(Players:GetPlayers()) do
@@ -594,7 +502,6 @@ local function UpdateVisuals()
     end
 end
 
--- RENDERSTEPPED LOOP (Aimbots, Visuals, Spin)
 local spinAngle = 0
 local function GetMurderer()
     for _, p in pairs(game:GetService("Players"):GetPlayers()) do
@@ -613,7 +520,7 @@ local function GetSheriff()
     end
     return nil
 end
--- [ ОСНОВНОЙ ЦИКЛ ]
+
 local function SkidFling(TargetPlayer)
     local char = player.Character
     local hum = char:FindFirstChildOfClass("Humanoid")
@@ -627,43 +534,35 @@ local function SkidFling(TargetPlayer)
         local oldPos = hrp.CFrame
         local startTime = tick()
         
-        -- [ СИЛОВЫЕ УСТАНОВКИ ИЗ ОРИГИНАЛА ]
         local fly = Instance.new("BodyVelocity")
         fly.MaxForce = Vector3.new(9e9, 9e9, 9e9)
         fly.Velocity = Vector3.new(0, 0, 0)
         fly.Parent = hrp
 
-        hum.PlatformStand = true -- Отключаем анимации, чтобы физика работала на 100%
+        hum.PlatformStand = true
 
-        -- Цикл атаки
         repeat
             task.wait()
-            -- Создаем хаотичное движение вокруг цели
             local rot = CFrame.Angles(math.random(-360, 360), math.random(-360, 360), math.random(-360, 360))
             local pos = thrp.CFrame * CFrame.new(0, 1.5, 0) * rot
             
             hrp.CFrame = pos
-            
-            -- Накачка импульса (Те самые 9e7)
             hrp.Velocity = Vector3.new(9e7, 9e7, 9e7)
             hrp.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
-            
-            -- Проверка: если цель улетела очень далеко или умерла
         until not TargetPlayer or not tchar or not thrp or (thrp.Position - hrp.Position).Magnitude > 500 or tick() - startTime > 2 or not _G.XenoV5.FlingActive
 
-        -- [ ОЧИСТКА ]
         fly:Destroy()
         hum.PlatformStand = false
         hrp.Velocity = Vector3.new(0, 0, 0)
         hrp.RotVelocity = Vector3.new(0, 0, 0)
         
-        -- Плавный возврат
         for i = 1, 5 do
             hrp.CFrame = oldPos
             task.wait()
         end
     end
 end
+
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if UpdateVisuals then UpdateVisuals() end
@@ -701,7 +600,6 @@ RunService.RenderStepped:Connect(function()
             if math.random(1, 10) > 8 then hrp.Anchored = true; task.wait(0.1); hrp.Anchored = false end
         end
 
-        -- [ ELITE ANTI-FLING ]
         if _G.XenoV5.AntiFling then
             for _, v in pairs(game:GetService("Players"):GetPlayers()) do
                 if v ~= player and v.Character then
@@ -716,27 +614,23 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- [ ULTIMATE FLING (ИЗ ТВОЕЙ ССЫЛКИ) ]
         local targetFling = nil
         if _G.XenoV5.FlingMurderer and mdr then targetFling = mdr
         elseif _G.XenoV5.FlingSheriff and shr then targetFling = shr end
 
         if _G.XenoV5.Fling or targetFling then
-            hum.PlatformStand = true -- Делаем персонажа снарядом
+            hum.PlatformStand = true 
             
-            -- Добавляем хаотичный импульс (BodyThrust)
             local thrust = hrp:FindFirstChild("UltBodyThrust") or Instance.new("BodyThrust", hrp)
             thrust.Name = "UltBodyThrust"
             thrust.Force = Vector3.new(9999, 9999, 9999)
             thrust.Location = hrp.Position + Vector3.new(0, 1.5, 0)
             
-            -- Бешеное вращение (BodyAngularVelocity)
             local spin = hrp:FindFirstChild("UltAngularVel") or Instance.new("BodyAngularVelocity", hrp)
             spin.Name = "UltAngularVel"
             spin.AngularVelocity = Vector3.new(0, 99999, 0)
             spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
             
-            -- Убираем трение
             for _, part in pairs(char:GetChildren()) do
                 if part:IsA("BasePart") then
                     part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
@@ -744,18 +638,15 @@ RunService.RenderStepped:Connect(function()
                 end
             end
 
-            -- Авто-наведение для ролевого флинга
             if targetFling and targetFling:FindFirstChild("HumanoidRootPart") then
                 hrp.CFrame = targetFling.HumanoidRootPart.CFrame
             end
         else
-            -- Чистим всё, если флинг выключен
             if hrp:FindFirstChild("UltBodyThrust") then hrp.UltBodyThrust:Destroy() end
             if hrp:FindFirstChild("UltAngularVel") then hrp.UltAngularVel:Destroy() end
             hum.PlatformStand = false
         end
 
-        -- [ SHERIFF AUTO KILL ]
         if _G.XenoV5.SheriffAutoKill and mdr and mdr:FindFirstChild("HumanoidRootPart") then
             if char:FindFirstChild("Gun") or player.Backpack:FindFirstChild("Gun") then
                 hrp.CFrame = mdr.HumanoidRootPart.CFrame * CFrame.new(0, 5, -12)
@@ -767,7 +658,6 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
--- KILL AURA И AUTO FARM COINS (В ОТДЕЛЬНЫХ ПОТОКАХ)
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -777,21 +667,19 @@ task.spawn(function()
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
 
-            -- [ ИСПРАВЛЕННАЯ KILL AURA С ПОЛЗУНКОМ ]
             if _G.XenoV5.MurdererAura and char:FindFirstChild("Knife") then
                 for _, target in pairs(Players:GetPlayers()) do
                     if target ~= player and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
                         local targetHrp = target.Character.HumanoidRootPart
                         local dist = (hrp.Position - targetHrp.Position).Magnitude
                         if dist <= _G.XenoV5.KillAuraRange then
-                            hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 1.2) -- ТП за спину
-                            mouse1click() -- Удар
+                            hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 1.2)
+                            mouse1click() 
                         end
                     end
                 end
             end
 
-            -- [ ИСПРАВЛЕННЫЙ АВТО ФАРМ МОНЕТ ]
             if _G.XenoV5.AutoFarmCoins then
                 local coinContainer = workspace:FindFirstChild("Normal") and workspace.Normal:FindFirstChild("CoinContainer")
                 if coinContainer then
@@ -804,56 +692,48 @@ task.spawn(function()
                         
                         if targetCoin then
                             local dist = (hrp.Position - targetCoin.Position).Magnitude
-                            local tweenTime = dist / 40 -- Скорость полета
+                            local tweenTime = dist / 40 
                             local tween = TweenService:Create(hrp, TweenInfo.new(tweenTime, Enum.EasingStyle.Linear), {CFrame = targetCoin.CFrame})
                             tween:Play()
                             tween.Completed:Wait()
 
-                            -- Проверка на полный мешок
                             local bag = player.PlayerGui:FindFirstChild("MainGUI") and player.PlayerGui.MainGUI:FindFirstChild("Game") and player.PlayerGui.MainGUI.Game:FindFirstChild("Cashbag")
                             if bag and bag:FindFirstChild("Full") and bag.Full.Visible then
-                                char:BreakJoints() -- Мешок полон -> умираем
+                                char:BreakJoints()
                             end
                         end
                     end
                 end
             end
             
-            -- [ ПРОДВИНУТЫЙ AUTO GRAB GUN ]
             if _G.XenoV5.AutoGrabGun and not _G.IsTeleporting then
                 local drop = workspace:FindFirstChild("GunDrop", true)
                 
                 if drop and drop:IsA("BasePart") then
-                    -- 1. Проверяем, где убийца
                     local murderer = nil
                     for _, p in pairs(game:GetService("Players"):GetPlayers()) do
-                        -- Ищем игрока, у которого в руках или в рюкзаке нож
                         if p.Character and (p.Character:FindFirstChild("Knife") or p.Backpack:FindFirstChild("Knife")) then
                             murderer = p.Character
                             break
                         end
                     end
 
-                    -- 2. Проверяем дистанцию (безопасно ли?)
                     local isSafe = true
                     if murderer and murderer:FindFirstChild("HumanoidRootPart") then
                         local distToGun = (murderer.HumanoidRootPart.Position - drop.Position).Magnitude
-                        if distToGun < 10 then -- Если убийца ближе 35 метров к пушке — не прыгаем
-                            isSafe = false
-                        end
+                        if distToGun < 10 then isSafe = false end
                     end
 
-                    -- 3. Если безопасно, выполняем маневр
                     if isSafe then
-                        _G.IsTeleporting = true -- Включаем "замок"
-                        local oldPos = hrp.CFrame -- Запоминаем твою позицию
+                        _G.IsTeleporting = true
+                        local oldPos = hrp.CFrame 
                         
-                        hrp.CFrame = drop.CFrame -- ТП к пушке
-                        task.wait(0.2) -- Ждем ровно 1 секунду
+                        hrp.CFrame = drop.CFrame 
+                        task.wait(0.2) 
                         
-                        hrp.CFrame = oldPos -- ТП обратно на старое место
-                        task.wait(0.5) -- Небольшая пауза перед следующей попыткой
-                        _G.IsTeleporting = false -- Выключаем "замок"
+                        hrp.CFrame = oldPos 
+                        task.wait(0.5) 
+                        _G.IsTeleporting = false 
                     end
                 end
             end
@@ -861,7 +741,6 @@ task.spawn(function()
     end
 end)
 
--- HEARTBEAT (ФИЗИКА)
 RunService.Heartbeat:Connect(function()
     pcall(function()
         if _G.XenoV5.Noclip and player.Character then
@@ -890,7 +769,6 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
--- ВВОД ПОЛЬЗОВАТЕЛЯ
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     
@@ -905,7 +783,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- CTRL + CLICK TELEPORT
 mouse.Button1Down:Connect(function()
     if _G.XenoV5.CtrlClickTP and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
         if mouse.Hit and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -914,7 +791,6 @@ mouse.Button1Down:Connect(function()
     end
 end)
 
--- CHAT SPAMMER ЦИКЛ
 task.spawn(function()
     while true do
         if _G.XenoV5.ChatSpam then
