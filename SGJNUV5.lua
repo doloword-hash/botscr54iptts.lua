@@ -147,6 +147,25 @@ closeBtn.Font = Enum.Font.GothamBlack
 closeBtn.TextSize = 18
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
+-- Дополнительный инжект (Кнопка)
+local ExtraInjectBtn = Instance.new("TextButton")
+ExtraInjectBtn.Name = "ExtraInjectBtn"
+ExtraInjectBtn.Parent = MainFrame -- Привязываем к главному окну
+ExtraInjectBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+ExtraInjectBtn.BorderSizePixel = 0
+-- ВНИМАНИЕ: Если кнопка не видна, измени 360 на другое число (например, 200)
+ExtraInjectBtn.Position = UDim2.new(0, 10, 0, 360) 
+ExtraInjectBtn.Size = UDim2.new(1, -20, 0, 30)
+ExtraInjectBtn.Font = Enum.Font.SourceSansBold
+ExtraInjectBtn.Text = "EXTRA INJECT SLOT"
+ExtraInjectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExtraInjectBtn.TextSize = 14
+ExtraInjectBtn.ZIndex = 5 -- Чтобы кнопка была поверх всего
+
+local ExtraCorner = Instance.new("UICorner")
+ExtraCorner.CornerRadius = UDim.new(0, 4)
+ExtraCorner.Parent = ExtraInjectBtn
+
 -- КОНТЕЙНЕРЫ
 local sidebar = Instance.new("Frame", main)
 sidebar.Size = UDim2.new(0, 140, 1, -35)
@@ -495,7 +514,11 @@ CreateButton(tabInjects, "Tab Teleport", function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject2.lua'))()
     -- === КОНЕЦ ТВОЕГО СКРИПТА ===
 end)
-
+ExtraInjectBtn.MouseButton1Click:Connect(function()
+    -- Сюда вставляй код, который хочешь запустить
+    Message("INJECTED", "Additional function executed!")
+	loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/KILASIKFLING.lua'))()
+end)
 -- =========================================================
 -- [ЛОГИКА ХАКА И ФУНКЦИИ]
 -- =========================================================
