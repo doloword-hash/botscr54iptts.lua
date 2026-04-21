@@ -495,9 +495,6 @@ CreateButton(tabInjects, "Tab Teleport", function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject2.lua'))()
     -- === КОНЕЦ ТВОЕГО СКРИПТА ===
 end)
-CreateButton(flingInjects, "NAVALNIY fling", function()  
-    Notify("Injects", "NAVALNIY fling Injected Successfully!", 3) 
-end)
 
 -- =========================================================
 -- [ЛОГИКА ХАКА И ФУНКЦИИ]
