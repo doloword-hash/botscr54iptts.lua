@@ -1,0 +1,807 @@
+-- Объединённый скрипт:
+-- Новый интерфейс + старый телепорт + роли + spectate
+-- Добавлена кнопка FL (Fling) напротив каждого игрока
+-- NOCLIP / ESP / UN-SPEC удалены
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+-- Безопасный getgenv для executor-среды
+local getgenv = getgenv or function()
+    return _G
+end
+
+if type(getgenv().FPDH) ~= "number" or getgenv().FPDH ~= getgenv().FPDH then
+    getgenv().FPDH = workspace.FallenPartsDestroyHeight
+end
+
+-- === СТИЛЬ ===
+local UI_COLOR = Color3.fromRGB(15, 15, 15)
+local ACCENT_COLOR = Color3.fromRGB(0, 255, 0)
+local CLOSE_COLOR = Color3.fromRGB(200, 50, 50)
+local SECONDARY_TEXT = Color3.fromRGB(180, 180, 180)
+local FLING_COLOR = Color3.fromRGB(255, 120, 0)
+
+-- === ГЛОБАЛЬНАЯ ПЕРЕМЕННАЯ ИЗ СТАРОГО СКРИПТА ===
+_G.TabInjected = true
+
+-- === GUI ===
+local sg = Instance.new("ScreenGui")
+sg.Name = "TeleportMenuSystem"
+sg.ResetOnSpawn = false
+sg.IgnoreGuiInset = true
+sg.DisplayOrder = 999999
+
+-- Чистим старый GUI из PlayerGui, если он там был
+pcall(function()
+    local playerGui = player:FindFirstChildOfClass("PlayerGui")
+    if playerGui then
+        local old = playerGui:FindFirstChild("TeleportMenuSystem")
+        if old then
+            old:Destroy()
+        end
+    end
+end)
+
+-- Пытаемся разместить в CoreGui, если не выходит — в PlayerGui
+local function cleanAndParent(parent)
+    pcall(function()
+        local old = parent:FindFirstChild("TeleportMenuSystem")
+        if old then
+            old:Destroy()
+        end
+    end)
+
+    pcall(function()
+        sg.Parent = parent
+    end)
+end
+
+local coreSuccess, coreGui = pcall(function()
+    return game:GetService("CoreGui")
+end)
+
+if coreSuccess and coreGui then
+    cleanAndParent(coreGui)
+end
+
+if not sg.Parent then
+    cleanAndParent(player:WaitForChild("PlayerGui"))
+end
+
+local function isAlive()
+    return _G.TabInjected and sg ~= nil and sg.Parent ~= nil
+end
+
+-- === ГЛАВНОЕ ОКНО ===
+local frame = Instance.new("Frame")
+frame.Name = "MainFrame"
+frame.Size = UDim2.new(0, 280, 0, 420)
+frame.Position = UDim2.new(0.5, -140, 0.5, -210)
+frame.BackgroundColor3 = UI_COLOR
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Parent = sg
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
+local stroke = Instance.new("UIStroke", frame)
+stroke.Color = ACCENT_COLOR
+stroke.Thickness = 2
+
+-- === КНОПКА ЗАКРЫТИЯ ===
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "CloseButton"
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+closeBtn.Text = "×"
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 20
+closeBtn.Parent = frame
+
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+
+closeBtn.MouseEnter:Connect(function()
+    closeBtn.TextColor3 = CLOSE_COLOR
+end)
+
+closeBtn.MouseLeave:Connect(function()
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+end)
+
+-- === ЗАГОЛОВОК ===
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -40, 0, 40)
+title.Position = UDim2.new(0, 15, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "TELEPORT (F2)"
+title.TextColor3 = ACCENT_COLOR
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = frame
+
+-- === ПОИСК ===
+local searchQuery = ""
+
+local searchBar = Instance.new("TextBox")
+searchBar.Size = UDim2.new(1, -20, 0, 30)
+searchBar.Position = UDim2.new(0, 10, 0, 40)
+searchBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+searchBar.PlaceholderText = "Search Player..."
+searchBar.Text = ""
+searchBar.TextColor3 = Color3.new(1, 1, 1)
+searchBar.Font = Enum.Font.Gotham
+searchBar.TextSize = 13
+searchBar.ClearTextOnFocus = false
+searchBar.Parent = frame
+
+Instance.new("UICorner", searchBar).CornerRadius = UDim.new(0, 6)
+
+-- === СПИСОК ИГРОКОВ ===
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(1, -20, 1, -90)
+scroll.Position = UDim2.new(0, 10, 0, 80)
+scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 2
+scroll.ScrollBarImageColor3 = ACCENT_COLOR
+scroll.Parent = frame
+
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 6)
+
+-- === СОСТОЯНИЕ ===
+local spectating = nil
+local FlingActive = false
+local flingingTarget = nil
+
+-- === КАМЕРА ===
+local function resetCamera()
+    local cam = workspace.CurrentCamera
+    local char = player.Character
+
+    if cam and char then
+        local hum = char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("Humanoid")
+        if hum then
+            cam.CameraSubject = hum
+        end
+    end
+
+    spectating = nil
+end
+
+local function spectatePlayer(targetPlayer)
+    local cam = workspace.CurrentCamera
+    local targetChar = targetPlayer and targetPlayer.Character
+
+    if not cam or not targetChar then
+        return false
+    end
+
+    local hum = targetChar:FindFirstChildOfClass("Humanoid") or targetChar:FindFirstChild("Humanoid")
+    if hum then
+        cam.CameraSubject = hum
+        spectating = targetPlayer
+        return true
+    end
+
+    return false
+end
+
+-- === СТАРЫЙ ТЕЛЕПОРТ ===
+local function teleportToPlayer(targetPlayer)
+    local myChar = player.Character
+    local targetChar = targetPlayer and targetPlayer.Character
+
+    if not myChar or not targetChar then
+        return
+    end
+
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then
+        return
+    end
+
+    local goal = targetRoot.CFrame * CFrame.new(0, 0, 3)
+
+    if myChar.PrimaryPart then
+        local ok = pcall(function()
+            myChar:SetPrimaryPartCFrame(goal)
+        end)
+
+        if ok then
+            return
+        end
+    end
+
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if myRoot then
+        myRoot.CFrame = goal
+    end
+end
+
+-- === ОБНОВЛЕНИЕ ЦВЕТА ГЛАЗА ===
+local function updateSpecButtons()
+    if not isAlive() then
+        return
+    end
+
+    for _, card in pairs(scroll:GetChildren()) do
+        if card:IsA("Frame") then
+            local specBtn = card:FindFirstChild("SpecButton")
+
+            if specBtn then
+                if spectating and card.Name == spectating.Name then
+                    specBtn.TextColor3 = ACCENT_COLOR
+                else
+                    specBtn.TextColor3 = Color3.new(1, 1, 1)
+                end
+            end
+        end
+    end
+end
+
+-- === ОБНОВЛЕНИЕ ЦВЕТА FLING КНОПКИ ===
+local function updateFlingButtons()
+    if not isAlive() then
+        return
+    end
+
+    for _, card in pairs(scroll:GetChildren()) do
+        if card:IsA("Frame") then
+            local flBtn = card:FindFirstChild("FlingButton")
+
+            if flBtn then
+                if flingingTarget and card.Name == flingingTarget.Name then
+                    flBtn.TextColor3 = ACCENT_COLOR
+                else
+                    flBtn.TextColor3 = FLING_COLOR
+                end
+            end
+        end
+    end
+end
+
+-- === FLING ИЗ KILASIKFLING ===
+local function SkidFling(TargetPlayer)
+    if FlingActive then
+        return
+    end
+
+    if not isAlive() then
+        return
+    end
+
+    local Character = player.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and (Humanoid.RootPart or Character:FindFirstChild("HumanoidRootPart"))
+
+    local TCharacter = TargetPlayer and TargetPlayer.Character
+    if not Character or not Humanoid or not RootPart or not TCharacter then
+        return
+    end
+
+    local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = THumanoid and (THumanoid.RootPart or TCharacter:FindFirstChild("HumanoidRootPart"))
+    local THead = TCharacter:FindFirstChild("Head")
+    local Accessory = TCharacter:FindFirstChildOfClass("Accessory")
+    local Handle = Accessory and Accessory:FindFirstChild("Handle")
+
+    if THumanoid and THumanoid.Sit then
+        return
+    end
+
+    if not TCharacter:FindFirstChildWhichIsA("BasePart") then
+        return
+    end
+
+    if RootPart.Velocity.Magnitude < 50 then
+        getgenv().OldPos = RootPart.CFrame
+    end
+
+    FlingActive = true
+    flingingTarget = TargetPlayer
+    updateFlingButtons()
+
+    local restoreFPDH = getgenv().FPDH
+    if type(restoreFPDH) ~= "number" or restoreFPDH ~= restoreFPDH then
+        restoreFPDH = workspace.FallenPartsDestroyHeight
+    end
+
+    local function FPos(BasePart, Pos, Ang)
+        if not RootPart or not RootPart.Parent or not BasePart or not BasePart.Parent then
+            return
+        end
+
+        local cf = CFrame.new(BasePart.Position) * Pos * Ang
+
+        RootPart.CFrame = cf
+
+        pcall(function()
+            Character:SetPrimaryPartCFrame(cf)
+        end)
+
+        RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+        RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+    end
+
+    local function SFBasePart(BasePart)
+        local TimeToWait = 2
+        local Time = tick()
+        local Angle = 0
+
+        repeat
+            if not RootPart or not RootPart.Parent or not BasePart or not BasePart.Parent or not THumanoid or not THumanoid.Parent then
+                break
+            end
+
+            if BasePart.Velocity.Magnitude < 50 then
+                Angle = Angle + 100
+
+                FPos(
+                    BasePart,
+                    CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25,
+                    CFrame.Angles(math.rad(Angle), 0, 0)
+                )
+
+                task.wait()
+
+                FPos(
+                    BasePart,
+                    CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25,
+                    CFrame.Angles(math.rad(Angle), 0, 0)
+                )
+
+                task.wait()
+            else
+                FPos(
+                    BasePart,
+                    CFrame.new(0, 1.5, THumanoid.WalkSpeed),
+                    CFrame.Angles(math.rad(90), 0, 0)
+                )
+
+                task.wait()
+
+                FPos(
+                    BasePart,
+                    CFrame.new(0, -1.5, -THumanoid.WalkSpeed),
+                    CFrame.Angles(0, 0, 0)
+                )
+
+                task.wait()
+            end
+        until Time + TimeToWait < tick() or not FlingActive
+    end
+
+    local BV
+
+    pcall(function()
+        workspace.FallenPartsDestroyHeight = 0 / 0
+
+        BV = Instance.new("BodyVelocity", RootPart)
+        BV.Velocity = Vector3.new(0, 0, 0)
+        BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+
+        if TRootPart then
+            SFBasePart(TRootPart)
+        elseif THead then
+            SFBasePart(THead)
+        elseif Handle then
+            SFBasePart(Handle)
+        end
+
+        if BV then
+            BV:Destroy()
+            BV = nil
+        end
+
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+
+        local oldPos = getgenv().OldPos
+
+        if typeof(oldPos) == "CFrame" then
+            local restoreStart = tick()
+
+            repeat
+                if not RootPart or not RootPart.Parent then
+                    break
+                end
+
+                local cf = oldPos * CFrame.new(0, 0.5, 0)
+
+                RootPart.CFrame = cf
+
+                pcall(function()
+                    Character:SetPrimaryPartCFrame(cf)
+                end)
+
+                pcall(function()
+                    Humanoid:ChangeState("GettingUp")
+                end)
+
+                for _, part in pairs(Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.Velocity = Vector3.new()
+                        part.RotVelocity = Vector3.new()
+                    end
+                end
+
+                task.wait()
+            until (RootPart.Position - oldPos.Position).Magnitude < 25
+                or tick() - restoreStart > 5
+        end
+    end)
+
+    if BV then
+        pcall(function()
+            BV:Destroy()
+        end)
+    end
+
+    pcall(function()
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+    end)
+
+    pcall(function()
+        workspace.FallenPartsDestroyHeight = restoreFPDH
+    end)
+
+    FlingActive = false
+    flingingTarget = nil
+    updateFlingButtons()
+end
+
+-- === КНОПКА ЗАКРЫТИЯ: ЛОГИКА ===
+closeBtn.MouseButton1Click:Connect(function()
+    _G.TabInjected = false
+    FlingActive = false
+    resetCamera()
+    sg:Destroy()
+end)
+
+-- === СТАРАЯ ФУНКЦИЯ РОЛЕЙ ===
+local function getRoleInfo(p)
+    local role = "[INNOCENT]"
+    local color = Color3.fromRGB(200, 200, 200)
+
+    if p.Character then
+        local backpack = p:FindFirstChild("Backpack")
+
+        local hasKnife = p.Character:FindFirstChild("Knife")
+            or (backpack and backpack:FindFirstChild("Knife"))
+
+        local hasGun = p.Character:FindFirstChild("Gun")
+            or (backpack and backpack:FindFirstChild("Gun"))
+
+        if hasKnife then
+            role = "[MURDERER]"
+            color = Color3.fromRGB(255, 50, 50)
+        elseif hasGun then
+            role = "[SHERIFF]"
+            color = Color3.fromRGB(50, 150, 255)
+        end
+    end
+
+    return role, color
+end
+
+-- === ОБНОВЛЕНИЕ СПИСКА ИГРОКОВ ===
+local function refresh()
+    if not isAlive() then
+        return
+    end
+
+    for _, v in pairs(scroll:GetChildren()) do
+        if v:IsA("GuiObject") then
+            v:Destroy()
+        end
+    end
+
+    local query = string.lower(searchQuery)
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player then
+            local lowerName = string.lower(p.Name)
+            local lowerDisplay = string.lower(p.DisplayName)
+
+            local visible = query == ""
+                or string.find(lowerName, query, 1, true) ~= nil
+                or string.find(lowerDisplay, query, 1, true) ~= nil
+
+            if visible then
+                local card = Instance.new("Frame")
+                card.Name = p.Name
+                card.Size = UDim2.new(1, -5, 0, 56)
+                card.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                card.Parent = scroll
+
+                Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+                local avatar = Instance.new("ImageLabel")
+                avatar.Size = UDim2.new(0, 40, 0, 40)
+                avatar.Position = UDim2.new(0, 6, 0.5, -20)
+                avatar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. p.UserId .. "&w=150&h=150"
+                avatar.Parent = card
+
+                Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
+
+                local dName = Instance.new("TextLabel")
+                dName.Size = UDim2.new(1, -160, 0, 16)
+                dName.Position = UDim2.new(0, 54, 0, 6)
+                dName.BackgroundTransparency = 1
+                dName.Text = p.DisplayName
+                dName.TextColor3 = Color3.new(1, 1, 1)
+                dName.Font = Enum.Font.GothamBold
+                dName.TextSize = 13
+                dName.TextXAlignment = Enum.TextXAlignment.Left
+                dName.TextTruncate = Enum.TextTruncate.AtEnd
+                dName.Parent = card
+
+                local roleText, roleColor = getRoleInfo(p)
+
+                local roleLabel = Instance.new("TextLabel")
+                roleLabel.Name = "RoleLabel"
+                roleLabel.Size = UDim2.new(1, -160, 0, 14)
+                roleLabel.Position = UDim2.new(0, 54, 0, 23)
+                roleLabel.BackgroundTransparency = 1
+                roleLabel.Text = roleText
+                roleLabel.TextColor3 = roleColor
+                roleLabel.Font = Enum.Font.GothamBold
+                roleLabel.TextSize = 11
+                roleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                roleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                roleLabel.Parent = card
+
+                local uName = Instance.new("TextLabel")
+                uName.Size = UDim2.new(1, -160, 0, 12)
+                uName.Position = UDim2.new(0, 54, 0, 38)
+                uName.BackgroundTransparency = 1
+                uName.Text = "@" .. p.Name
+                uName.TextColor3 = SECONDARY_TEXT
+                uName.Font = Enum.Font.Gotham
+                uName.TextSize = 10
+                uName.TextXAlignment = Enum.TextXAlignment.Left
+                uName.TextTruncate = Enum.TextTruncate.AtEnd
+                uName.Parent = card
+
+                -- Кнопка FLING
+                local flBtn = Instance.new("TextButton")
+                flBtn.Name = "FlingButton"
+                flBtn.Size = UDim2.new(0, 28, 0, 30)
+                flBtn.Position = UDim2.new(1, -96, 0.5, -15)
+                flBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                flBtn.Text = "FL"
+                flBtn.Font = Enum.Font.GothamBold
+                flBtn.TextSize = 12
+                flBtn.Parent = card
+
+                Instance.new("UICorner", flBtn).CornerRadius = UDim.new(0, 6)
+
+                if flingingTarget == p then
+                    flBtn.TextColor3 = ACCENT_COLOR
+                else
+                    flBtn.TextColor3 = FLING_COLOR
+                end
+
+                flBtn.MouseButton1Click:Connect(function()
+                    if flingingTarget == p then
+                        FlingActive = false
+                    elseif not FlingActive then
+                        task.spawn(function()
+                            SkidFling(p)
+                        end)
+                    end
+                end)
+
+                -- Кнопка телепорта
+                local tpBtn = Instance.new("TextButton")
+                tpBtn.Size = UDim2.new(0, 28, 0, 30)
+                tpBtn.Position = UDim2.new(1, -64, 0.5, -15)
+                tpBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                tpBtn.Text = "TP"
+                tpBtn.TextColor3 = ACCENT_COLOR
+                tpBtn.Font = Enum.Font.GothamBold
+                tpBtn.TextSize = 12
+                tpBtn.Parent = card
+
+                Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 6)
+
+                tpBtn.MouseButton1Click:Connect(function()
+                    teleportToPlayer(p)
+                end)
+
+                -- Кнопка Spectate / Un-Spectate
+                local specBtn = Instance.new("TextButton")
+                specBtn.Name = "SpecButton"
+                specBtn.Size = UDim2.new(0, 28, 0, 30)
+                specBtn.Position = UDim2.new(1, -32, 0.5, -15)
+                specBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                specBtn.Text = "👁"
+                specBtn.Font = Enum.Font.GothamBold
+                specBtn.TextSize = 14
+                specBtn.Parent = card
+
+                Instance.new("UICorner", specBtn).CornerRadius = UDim.new(0, 6)
+
+                if spectating == p then
+                    specBtn.TextColor3 = ACCENT_COLOR
+                else
+                    specBtn.TextColor3 = Color3.new(1, 1, 1)
+                end
+
+                specBtn.MouseButton1Click:Connect(function()
+                    if spectating == p then
+                        resetCamera()
+                    else
+                        spectatePlayer(p)
+                    end
+
+                    updateSpecButtons()
+                end)
+            end
+        end
+    end
+
+    scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 5)
+    updateSpecButtons()
+    updateFlingButtons()
+end
+
+-- === ПОИСК ===
+searchBar:GetPropertyChangedSignal("Text"):Connect(function()
+    if not isAlive() then
+        return
+    end
+
+    searchQuery = searchBar.Text
+    refresh()
+end)
+
+-- === F2 ===
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not isAlive() then
+        return
+    end
+
+    if gameProcessed then
+        return
+    end
+
+    if input.KeyCode == Enum.KeyCode.F2 then
+        frame.Visible = not frame.Visible
+    end
+end)
+
+-- === ПЕРЕТАСКИВАНИЕ ОКНА ===
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+frame.InputBegan:Connect(function(input)
+    if not isAlive() then
+        return
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not isAlive() then
+        return
+    end
+
+    if dragging and dragStart and startPos and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if not isAlive() then
+        return
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- === ЦИКЛ РОЛЕЙ + ПОДДЕРЖКА SPECTATE/FLING ===
+task.spawn(function()
+    while isAlive() do
+        task.wait(0.5)
+
+        if not isAlive() then
+            break
+        end
+
+        if not scroll or not scroll.Parent then
+            break
+        end
+
+        -- Если наблюдаемый игрок ливнул — возвращаем камеру
+        if spectating then
+            if not spectating.Parent then
+                resetCamera()
+                updateSpecButtons()
+            else
+                local cam = workspace.CurrentCamera
+                local char = spectating.Character
+
+                if cam and char then
+                    local hum = char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("Humanoid")
+
+                    if hum and cam.CameraSubject ~= hum then
+                        cam.CameraSubject = hum
+                    end
+                end
+            end
+        end
+
+        -- Если цель fling ливнула — прерываем fling
+        if flingingTarget and not flingingTarget.Parent then
+            FlingActive = false
+        end
+
+        -- Обновление ролей
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player then
+                local card = scroll:FindFirstChild(p.Name)
+                local roleLabel = card and card:FindFirstChild("RoleLabel")
+
+                if roleLabel then
+                    local roleText, roleColor = getRoleInfo(p)
+                    roleLabel.Text = roleText
+                    roleLabel.TextColor3 = roleColor
+                end
+            end
+        end
+    end
+end)
+
+-- === ИВЕНТЫ ИГРОКОВ ===
+Players.PlayerAdded:Connect(function()
+    if not isAlive() then
+        return
+    end
+
+    refresh()
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    if not isAlive() then
+        return
+    end
+
+    if spectating == p then
+        resetCamera()
+        updateSpecButtons()
+    end
+
+    if flingingTarget == p then
+        FlingActive = false
+    end
+
+    refresh()
+end)
+
+-- === СТАРТ ===
+refresh()
