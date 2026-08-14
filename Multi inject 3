@@ -1,14 +1,11 @@
--- Объединённый скрипт:
--- Новый интерфейс + старый телепорт + роли + spectate
--- Добавлена кнопка FL (Fling) напротив каждого игрока
--- NOCLIP / ESP / UN-SPEC удалены
+-- Возврат к скрипту из файла: роли + FL / TP
+-- FL и TP заменены на картинки
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-
 local player = Players.LocalPlayer
 
--- Безопасный getgenv для executor-среды
+-- Безопасный getgenv
 local getgenv = getgenv or function()
     return _G
 end
@@ -22,9 +19,8 @@ local UI_COLOR = Color3.fromRGB(15, 15, 15)
 local ACCENT_COLOR = Color3.fromRGB(0, 255, 0)
 local CLOSE_COLOR = Color3.fromRGB(200, 50, 50)
 local SECONDARY_TEXT = Color3.fromRGB(180, 180, 180)
-local FLING_COLOR = Color3.fromRGB(255, 120, 0)
 
--- === ГЛОБАЛЬНАЯ ПЕРЕМЕННАЯ ИЗ СТАРОГО СКРИПТА ===
+-- === ГЛОБАЛЬНАЯ ПЕРЕМЕННАЯ ===
 _G.TabInjected = true
 
 -- === GUI ===
@@ -34,7 +30,6 @@ sg.ResetOnSpawn = false
 sg.IgnoreGuiInset = true
 sg.DisplayOrder = 999999
 
--- Чистим старый GUI из PlayerGui, если он там был
 pcall(function()
     local playerGui = player:FindFirstChildOfClass("PlayerGui")
     if playerGui then
@@ -45,7 +40,6 @@ pcall(function()
     end
 end)
 
--- Пытаемся разместить в CoreGui, если не выходит — в PlayerGui
 local function cleanAndParent(parent)
     pcall(function()
         local old = parent:FindFirstChild("TeleportMenuSystem")
@@ -193,7 +187,7 @@ local function spectatePlayer(targetPlayer)
     return false
 end
 
--- === СТАРЫЙ ТЕЛЕПОРТ ===
+-- === ТЕЛЕПОРТ ===
 local function teleportToPlayer(targetPlayer)
     local myChar = player.Character
     local targetChar = targetPlayer and targetPlayer.Character
@@ -225,7 +219,7 @@ local function teleportToPlayer(targetPlayer)
     end
 end
 
--- === ОБНОВЛЕНИЕ ЦВЕТА ГЛАЗА ===
+-- === ОБНОВЛЕНИЕ КНОПКИ SPECTATE ===
 local function updateSpecButtons()
     if not isAlive() then
         return
@@ -246,7 +240,7 @@ local function updateSpecButtons()
     end
 end
 
--- === ОБНОВЛЕНИЕ ЦВЕТА FLING КНОПКИ ===
+-- === ОБНОВЛЕНИЕ КАРТИНКИ FLING ===
 local function updateFlingButtons()
     if not isAlive() then
         return
@@ -258,16 +252,16 @@ local function updateFlingButtons()
 
             if flBtn then
                 if flingingTarget and card.Name == flingingTarget.Name then
-                    flBtn.TextColor3 = ACCENT_COLOR
+                    flBtn.ImageColor3 = ACCENT_COLOR
                 else
-                    flBtn.TextColor3 = FLING_COLOR
+                    flBtn.ImageColor3 = Color3.new(1, 1, 1)
                 end
             end
         end
     end
 end
 
--- === FLING ИЗ KILASIKFLING ===
+-- === FLING ===
 local function SkidFling(TargetPlayer)
     if FlingActive then
         return
@@ -319,7 +313,6 @@ local function SkidFling(TargetPlayer)
         end
 
         local cf = CFrame.new(BasePart.Position) * Pos * Ang
-
         RootPart.CFrame = cf
 
         pcall(function()
@@ -405,7 +398,6 @@ local function SkidFling(TargetPlayer)
         Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
 
         local oldPos = getgenv().OldPos
-
         if typeof(oldPos) == "CFrame" then
             local restoreStart = tick()
 
@@ -415,7 +407,6 @@ local function SkidFling(TargetPlayer)
                 end
 
                 local cf = oldPos * CFrame.new(0, 0.5, 0)
-
                 RootPart.CFrame = cf
 
                 pcall(function()
@@ -458,7 +449,7 @@ local function SkidFling(TargetPlayer)
     updateFlingButtons()
 end
 
--- === КНОПКА ЗАКРЫТИЯ: ЛОГИКА ===
+-- === ЛОГИКА КНОПКИ ЗАКРЫТИЯ ===
 closeBtn.MouseButton1Click:Connect(function()
     _G.TabInjected = false
     FlingActive = false
@@ -466,7 +457,7 @@ closeBtn.MouseButton1Click:Connect(function()
     sg:Destroy()
 end)
 
--- === СТАРАЯ ФУНКЦИЯ РОЛЕЙ ===
+-- === РОЛИ ===
 local function getRoleInfo(p)
     local role = "[INNOCENT]"
     local color = Color3.fromRGB(200, 200, 200)
@@ -492,7 +483,7 @@ local function getRoleInfo(p)
     return role, color
 end
 
--- === ОБНОВЛЕНИЕ СПИСКА ИГРОКОВ ===
+-- === ОБНОВЛЕНИЕ СПИСКА ===
 local function refresh()
     if not isAlive() then
         return
@@ -572,23 +563,19 @@ local function refresh()
                 uName.TextTruncate = Enum.TextTruncate.AtEnd
                 uName.Parent = card
 
-                -- Кнопка FLING
-                local flBtn = Instance.new("TextButton")
+                -- FLING КАРТИНКА
+                local flBtn = Instance.new("ImageButton")
                 flBtn.Name = "FlingButton"
                 flBtn.Size = UDim2.new(0, 28, 0, 30)
                 flBtn.Position = UDim2.new(1, -96, 0.5, -15)
-                flBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-                flBtn.Text = "FL"
-                flBtn.Font = Enum.Font.GothamBold
-                flBtn.TextSize = 12
+                flBtn.BackgroundTransparency = 1
+                flBtn.Image = "rbxassetid://136610541521358"
+                flBtn.ImageColor3 = Color3.new(1, 1, 1)
+                flBtn.ScaleType = Enum.ScaleType.Fit
                 flBtn.Parent = card
 
-                Instance.new("UICorner", flBtn).CornerRadius = UDim.new(0, 6)
-
                 if flingingTarget == p then
-                    flBtn.TextColor3 = ACCENT_COLOR
-                else
-                    flBtn.TextColor3 = FLING_COLOR
+                    flBtn.ImageColor3 = ACCENT_COLOR
                 end
 
                 flBtn.MouseButton1Click:Connect(function()
@@ -601,24 +588,22 @@ local function refresh()
                     end
                 end)
 
-                -- Кнопка телепорта
-                local tpBtn = Instance.new("TextButton")
+                -- TELEPORT КАРТИНКА
+                local tpBtn = Instance.new("ImageButton")
+                tpBtn.Name = "TeleportButton"
                 tpBtn.Size = UDim2.new(0, 28, 0, 30)
                 tpBtn.Position = UDim2.new(1, -64, 0.5, -15)
-                tpBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-                tpBtn.Text = "TP"
-                tpBtn.TextColor3 = ACCENT_COLOR
-                tpBtn.Font = Enum.Font.GothamBold
-                tpBtn.TextSize = 12
+                tpBtn.BackgroundTransparency = 1
+                tpBtn.Image = "rbxassetid://6723742952"
+                tpBtn.ImageColor3 = Color3.new(1, 1, 1)
+                tpBtn.ScaleType = Enum.ScaleType.Fit
                 tpBtn.Parent = card
-
-                Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 6)
 
                 tpBtn.MouseButton1Click:Connect(function()
                     teleportToPlayer(p)
                 end)
 
-                -- Кнопка Spectate / Un-Spectate
+                -- SPECTATE
                 local specBtn = Instance.new("TextButton")
                 specBtn.Name = "SpecButton"
                 specBtn.Size = UDim2.new(0, 28, 0, 30)
@@ -680,7 +665,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- === ПЕРЕТАСКИВАНИЕ ОКНА ===
+-- === ПЕРЕТАСКИВАНИЕ ===
 local dragging = false
 local dragStart = nil
 local startPos = nil
@@ -724,7 +709,7 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- === ЦИКЛ РОЛЕЙ + ПОДДЕРЖКА SPECTATE/FLING ===
+-- === ЦИКЛ РОЛЕЙ И ПОДДЕРЖКА ===
 task.spawn(function()
     while isAlive() do
         task.wait(0.5)
@@ -737,7 +722,6 @@ task.spawn(function()
             break
         end
 
-        -- Если наблюдаемый игрок ливнул — возвращаем камеру
         if spectating then
             if not spectating.Parent then
                 resetCamera()
@@ -756,12 +740,10 @@ task.spawn(function()
             end
         end
 
-        -- Если цель fling ливнула — прерываем fling
         if flingingTarget and not flingingTarget.Parent then
             FlingActive = false
         end
 
-        -- Обновление ролей
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player then
                 local card = scroll:FindFirstChild(p.Name)
