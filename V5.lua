@@ -639,7 +639,7 @@ local function CreateGunESP(gun)
     local text = Instance.new("TextLabel", billboard)
     text.Size = UDim2.new(1, 0, 1, 0)
     text.BackgroundTransparency = 1
-    text.Text = "🔫 Gun Dropped"
+    text.Text = "Gun Dropped"
     text.TextColor3 = Color3.fromRGB(210, 190, 255)
     text.Font = Enum.Font.GothamBold
     text.TextScaled = true
@@ -896,6 +896,9 @@ end)
 
 local ExtraInjectBtn = CreateButton(tabInjects, "Extra Inject", function()
     Notify("Injects", "Extra inject slot ready!", 2)
+    pcall(function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Multi%20inject%203'))()
+    end)
 end)
 
 local ExtraCorner = Instance.new("UICorner")
