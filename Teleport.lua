@@ -1,30 +1,78 @@
-local UIS = game:GetService("UserInputService")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
+-- Teleport Menu
+-- TP / FL заменены на иконки
+-- UN-SPEC удалён, spectate выключается повторным нажатием на глаз
 
--- === НАСТРОЙКИ СТИЛЯ (Твои оригинальные) ===
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+local getgenv = getgenv or function()
+    return _G
+end
+
+pcall(function()
+    if type(getgenv().FPDH) ~= "number" or getgenv().FPDH ~= getgenv().FPDH then
+        getgenv().FPDH = workspace.FallenPartsDestroyHeight
+    end
+end)
+
+-- === СТИЛЬ ===
 local UI_COLOR = Color3.fromRGB(15, 15, 15)
 local ACCENT_COLOR = Color3.fromRGB(0, 255, 0)
-local CLOSE_COLOR = Color3.fromRGB(200, 50, 50) 
+local CLOSE_COLOR = Color3.fromRGB(200, 50, 50)
 local SECONDARY_TEXT = Color3.fromRGB(180, 180, 180)
 
--- === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ===
-local isNoclip = false
-local isESP = false
-local spectating = nil
-local searchQuery = ""
+_G.TabInjected = true
 
--- Создаем GUI
+-- === GUI ===
 local sg = Instance.new("ScreenGui")
 sg.Name = "TeleportMenuSystem"
 sg.ResetOnSpawn = false
 sg.IgnoreGuiInset = true
-local success, result = pcall(function() return game:GetService("CoreGui") end)
-sg.Parent = success and result or player:WaitForChild("PlayerGui")
+sg.DisplayOrder = 999999
 
--- Главное окно (Чуть увеличил высоту для новых кнопок)
+pcall(function()
+    local playerGui = player:FindFirstChildOfClass("PlayerGui")
+    if playerGui then
+        local old = playerGui:FindFirstChild("TeleportMenuSystem")
+        if old then
+            old:Destroy()
+        end
+    end
+end)
+
+local function cleanAndParent(parent)
+    pcall(function()
+        local old = parent:FindFirstChild("TeleportMenuSystem")
+        if old then
+            old:Destroy()
+        end
+    end)
+
+    pcall(function()
+        sg.Parent = parent
+    end)
+end
+
+local coreSuccess, coreGui = pcall(function()
+    return game:GetService("CoreGui")
+end)
+
+if coreSuccess and coreGui then
+    cleanAndParent(coreGui)
+end
+
+if not sg.Parent then
+    cleanAndParent(player:WaitForChild("PlayerGui"))
+end
+
+local function isAlive()
+    return _G.TabInjected and sg ~= nil and sg.Parent ~= nil
+end
+
+-- === ГЛАВНОЕ ОКНО ===
 local frame = Instance.new("Frame")
 frame.Name = "MainFrame"
 frame.Size = UDim2.new(0, 280, 0, 450)
@@ -35,11 +83,12 @@ frame.Active = true
 frame.Parent = sg
 
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
 local stroke = Instance.new("UIStroke", frame)
 stroke.Color = ACCENT_COLOR
 stroke.Thickness = 2
 
--- КНОПКА ЗАКРЫТИЯ
+-- === КНОПКА ЗАКРЫТИЯ ===
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "CloseButton"
 closeBtn.Size = UDim2.new(0, 30, 0, 30)
@@ -50,23 +99,32 @@ closeBtn.TextColor3 = Color3.new(1, 1, 1)
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.TextSize = 20
 closeBtn.Parent = frame
+
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
 
-closeBtn.MouseButton1Click:Connect(function() sg:Destroy() end)
+closeBtn.MouseEnter:Connect(function()
+    closeBtn.TextColor3 = CLOSE_COLOR
+end)
 
--- Заголовок
+closeBtn.MouseLeave:Connect(function()
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+end)
+
+-- === ЗАГОЛОВОК ===
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -40, 0, 40)
 title.Position = UDim2.new(0, 15, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "Teleport (F2)"
+title.Text = "Teleport Menu (F2)"
 title.TextColor3 = ACCENT_COLOR
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = frame
 
--- === ПОИСК ИГРОКОВ ===
+-- === ПОИСК ===
+local searchQuery = ""
+
 local searchBar = Instance.new("TextBox")
 searchBar.Size = UDim2.new(1, -20, 0, 30)
 searchBar.Position = UDim2.new(0, 10, 0, 40)
@@ -76,12 +134,14 @@ searchBar.Text = ""
 searchBar.TextColor3 = Color3.new(1, 1, 1)
 searchBar.Font = Enum.Font.Gotham
 searchBar.TextSize = 13
+searchBar.ClearTextOnFocus = false
 searchBar.Parent = frame
+
 Instance.new("UICorner", searchBar).CornerRadius = UDim.new(0, 6)
 
--- Список игроков
+-- === СПИСОК ИГРОКОВ ===
 local scroll = Instance.new("ScrollingFrame")
-scroll.Size = UDim2.new(1, -20, 1, -135) -- Оставили место снизу для утилит
+scroll.Size = UDim2.new(1, -20, 1, -135)
 scroll.Position = UDim2.new(0, 10, 0, 80)
 scroll.BackgroundTransparency = 1
 scroll.BorderSizePixel = 0
@@ -90,108 +150,519 @@ scroll.ScrollBarImageColor3 = ACCENT_COLOR
 scroll.Parent = frame
 
 local layout = Instance.new("UIListLayout", scroll)
-layout.Padding = UDim.new(0, 8)
+layout.Padding = UDim.new(0, 6)
 
--- Функция создания карточки игрока
-local function refresh()
-	for _, v in pairs(scroll:GetChildren()) do
-		if v:IsA("GuiObject") then v:Destroy() end
-	end
-	
-	for _, p in pairs(Players:GetPlayers()) do
-		if p ~= player then
-			-- Логика фильтрации поиска
-			local lowerSearch = string.lower(searchQuery)
-			local lowerName = string.lower(p.Name)
-			local lowerDisp = string.lower(p.DisplayName)
-			
-			if searchQuery == "" or string.find(lowerName, lowerSearch) or string.find(lowerDisp, lowerSearch) then
-				
-				local btn = Instance.new("Frame")
-				btn.Name = p.Name
-				btn.Size = UDim2.new(1, -5, 0, 50)
-				btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-				btn.Parent = scroll
-				Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-				
-				local avatar = Instance.new("ImageLabel")
-				avatar.Size = UDim2.new(0, 40, 0, 40)
-				avatar.Position = UDim2.new(0, 5, 0.5, -20)
-				avatar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-				avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. p.UserId .. "&w=150&h=150"
-				avatar.Parent = btn
-				Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
-				
-				local dName = Instance.new("TextLabel")
-				dName.Size = UDim2.new(1, -130, 0, 20)
-				dName.Position = UDim2.new(0, 50, 0, 8)
-				dName.BackgroundTransparency = 1
-				dName.Text = p.DisplayName
-				dName.TextColor3 = Color3.new(1, 1, 1)
-				dName.Font = Enum.Font.GothamBold
-				dName.TextSize = 13
-				dName.TextXAlignment = Enum.TextXAlignment.Left
-				dName.Parent = btn
-				
-				local uName = Instance.new("TextLabel")
-				uName.Size = UDim2.new(1, -130, 0, 20)
-				uName.Position = UDim2.new(0, 50, 0, 24)
-				uName.BackgroundTransparency = 1
-				uName.Text = "@" .. p.Name
-				uName.TextColor3 = SECONDARY_TEXT
-				uName.Font = Enum.Font.Gotham
-				uName.TextSize = 11
-				uName.TextXAlignment = Enum.TextXAlignment.Left
-				uName.Parent = btn
-				
-				-- Кнопка Телепорта (TP)
-				local tpBtn = Instance.new("TextButton")
-				tpBtn.Size = UDim2.new(0, 30, 0, 30)
-				tpBtn.Position = UDim2.new(1, -75, 0.5, -15)
-				tpBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-				tpBtn.Text = "TP"
-				tpBtn.TextColor3 = ACCENT_COLOR
-				tpBtn.Font = Enum.Font.GothamBold
-				tpBtn.TextSize = 12
-				tpBtn.Parent = btn
-				Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 6)
-				
-				tpBtn.MouseButton1Click:Connect(function()
-					if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-						player.Character:MoveTo(p.Character.HumanoidRootPart.Position)
-					end
-				end)
+-- === СОСТОЯНИЕ ===
+local spectating = nil
+local FlingActive = false
+local flingingTarget = nil
+local isNoclip = false
+local isESP = false
 
-				-- Кнопка Spectate (Наблюдение)
-				local specBtn = Instance.new("TextButton")
-				specBtn.Size = UDim2.new(0, 30, 0, 30)
-				specBtn.Position = UDim2.new(1, -40, 0.5, -15)
-				specBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-				specBtn.Text = "👁"
-				specBtn.TextColor3 = Color3.new(1, 1, 1)
-				specBtn.Font = Enum.Font.GothamBold
-				specBtn.TextSize = 14
-				specBtn.Parent = btn
-				Instance.new("UICorner", specBtn).CornerRadius = UDim.new(0, 6)
+-- === КАМЕРА ===
+local function resetCamera()
+    local cam = workspace.CurrentCamera
+    local char = player.Character
 
-				specBtn.MouseButton1Click:Connect(function()
-					if p.Character and p.Character:FindFirstChild("Humanoid") then
-						camera.CameraSubject = p.Character.Humanoid
-						spectating = p
-					end
-				end)
-			end
-		end
-	end
-	scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+    if cam and char then
+        local hum = char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("Humanoid")
+        if hum then
+            cam.CameraSubject = hum
+        end
+    end
+
+    spectating = nil
 end
 
--- === ПАНЕЛЬ ПОЛЕЗНЫХ УТИЛИТ (ВНИЗУ) ===
+local function spectatePlayer(targetPlayer)
+    local cam = workspace.CurrentCamera
+    local targetChar = targetPlayer and targetPlayer.Character
+
+    if not cam or not targetChar then
+        return false
+    end
+
+    local hum = targetChar:FindFirstChildOfClass("Humanoid") or targetChar:FindFirstChild("Humanoid")
+    if hum then
+        cam.CameraSubject = hum
+        spectating = targetPlayer
+        return true
+    end
+
+    return false
+end
+
+-- === ТЕЛЕПОРТ ===
+local function teleportToPlayer(targetPlayer)
+    local myChar = player.Character
+    local targetChar = targetPlayer and targetPlayer.Character
+
+    if not myChar or not targetChar then
+        return
+    end
+
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then
+        return
+    end
+
+    local goal = targetRoot.CFrame * CFrame.new(0, 0, 3)
+
+    if myChar.PrimaryPart then
+        local ok = pcall(function()
+            myChar:SetPrimaryPartCFrame(goal)
+        end)
+
+        if ok then
+            return
+        end
+    end
+
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if myRoot then
+        myRoot.CFrame = goal
+    end
+end
+
+-- === ОБНОВЛЕНИЕ КНОПОК ===
+local function updateSpecButtons()
+    if not isAlive() then
+        return
+    end
+
+    for _, card in pairs(scroll:GetChildren()) do
+        if card:IsA("Frame") then
+            local specBtn = card:FindFirstChild("SpecButton")
+
+            if specBtn then
+                if spectating and card.Name == spectating.Name then
+                    specBtn.TextColor3 = ACCENT_COLOR
+                else
+                    specBtn.TextColor3 = Color3.new(1, 1, 1)
+                end
+            end
+        end
+    end
+end
+
+local function updateFlingButtons()
+    if not isAlive() then
+        return
+    end
+
+    for _, card in pairs(scroll:GetChildren()) do
+        if card:IsA("Frame") then
+            local flBtn = card:FindFirstChild("FlingButton")
+
+            if flBtn then
+                if flingingTarget and card.Name == flingingTarget.Name then
+                    flBtn.ImageColor3 = ACCENT_COLOR
+                else
+                    flBtn.ImageColor3 = Color3.new(1, 1, 1)
+                end
+            end
+        end
+    end
+end
+
+-- === NOCLIP / ESP ВСПОМОГАТЕЛЬНЫЕ ===
+local function setCharacterCollision(enabled)
+    local char = player.Character
+    if not char then
+        return
+    end
+
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            if part.Parent and not part.Parent:IsA("Accessory") then
+                part.CanCollide = enabled
+            end
+        end
+    end
+end
+
+local function clearAllESP()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character then
+            local h = p.Character:FindFirstChild("CombinedESP_Highlight")
+            if h then
+                h:Destroy()
+            end
+        end
+    end
+end
+
+local highlightSupported = false
+pcall(function()
+    local test = Instance.new("Highlight")
+    highlightSupported = true
+    test:Destroy()
+end)
+
+-- === FLING ===
+local function SkidFling(TargetPlayer)
+    if FlingActive then
+        return
+    end
+
+    if not isAlive() then
+        return
+    end
+
+    local Character = player.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and (Humanoid.RootPart or Character:FindFirstChild("HumanoidRootPart"))
+
+    local TCharacter = TargetPlayer and TargetPlayer.Character
+    if not Character or not Humanoid or not RootPart or not TCharacter then
+        return
+    end
+
+    local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = THumanoid and (THumanoid.RootPart or TCharacter:FindFirstChild("HumanoidRootPart"))
+    local THead = TCharacter:FindFirstChild("Head")
+    local Accessory = TCharacter:FindFirstChildOfClass("Accessory")
+    local Handle = Accessory and Accessory:FindFirstChild("Handle")
+
+    if THumanoid and THumanoid.Sit then
+        return
+    end
+
+    if not TCharacter:FindFirstChildWhichIsA("BasePart") then
+        return
+    end
+
+    if RootPart.Velocity.Magnitude < 50 then
+        getgenv().OldPos = RootPart.CFrame
+    end
+
+    FlingActive = true
+    flingingTarget = TargetPlayer
+    updateFlingButtons()
+
+    local restoreFPDH = getgenv().FPDH
+    if type(restoreFPDH) ~= "number" or restoreFPDH ~= restoreFPDH then
+        restoreFPDH = workspace.FallenPartsDestroyHeight
+    end
+
+    local function FPos(BasePart, Pos, Ang)
+        if not RootPart or not RootPart.Parent or not BasePart or not BasePart.Parent then
+            return
+        end
+
+        local cf = CFrame.new(BasePart.Position) * Pos * Ang
+        RootPart.CFrame = cf
+
+        pcall(function()
+            Character:SetPrimaryPartCFrame(cf)
+        end)
+
+        RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+        RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+    end
+
+    local function SFBasePart(BasePart)
+        local TimeToWait = 2
+        local Time = tick()
+        local Angle = 0
+
+        repeat
+            if not RootPart or not RootPart.Parent or not BasePart or not BasePart.Parent or not THumanoid or not THumanoid.Parent then
+                break
+            end
+
+            if BasePart.Velocity.Magnitude < 50 then
+                Angle = Angle + 100
+
+                FPos(
+                    BasePart,
+                    CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25,
+                    CFrame.Angles(math.rad(Angle), 0, 0)
+                )
+
+                task.wait()
+
+                FPos(
+                    BasePart,
+                    CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25,
+                    CFrame.Angles(math.rad(Angle), 0, 0)
+                )
+
+                task.wait()
+            else
+                FPos(
+                    BasePart,
+                    CFrame.new(0, 1.5, THumanoid.WalkSpeed),
+                    CFrame.Angles(math.rad(90), 0, 0)
+                )
+
+                task.wait()
+
+                FPos(
+                    BasePart,
+                    CFrame.new(0, -1.5, -THumanoid.WalkSpeed),
+                    CFrame.Angles(0, 0, 0)
+                )
+
+                task.wait()
+            end
+        until Time + TimeToWait < tick() or not FlingActive
+    end
+
+    local BV
+
+    pcall(function()
+        workspace.FallenPartsDestroyHeight = 0 / 0
+
+        BV = Instance.new("BodyVelocity", RootPart)
+        BV.Velocity = Vector3.new(0, 0, 0)
+        BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+
+        if TRootPart then
+            SFBasePart(TRootPart)
+        elseif THead then
+            SFBasePart(THead)
+        elseif Handle then
+            SFBasePart(Handle)
+        end
+
+        if BV then
+            BV:Destroy()
+            BV = nil
+        end
+
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+
+        local oldPos = getgenv().OldPos
+        if typeof(oldPos) == "CFrame" then
+            local restoreStart = tick()
+
+            repeat
+                if not RootPart or not RootPart.Parent then
+                    break
+                end
+
+                local cf = oldPos * CFrame.new(0, 0.5, 0)
+                RootPart.CFrame = cf
+
+                pcall(function()
+                    Character:SetPrimaryPartCFrame(cf)
+                end)
+
+                pcall(function()
+                    Humanoid:ChangeState("GettingUp")
+                end)
+
+                for _, part in pairs(Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.Velocity = Vector3.new()
+                        part.RotVelocity = Vector3.new()
+                    end
+                end
+
+                task.wait()
+            until (RootPart.Position - oldPos.Position).Magnitude < 25 or tick() - restoreStart > 5
+        end
+    end)
+
+    if BV then
+        pcall(function()
+            BV:Destroy()
+        end)
+    end
+
+    pcall(function()
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+    end)
+
+    pcall(function()
+        workspace.FallenPartsDestroyHeight = restoreFPDH
+    end)
+
+    FlingActive = false
+    flingingTarget = nil
+    updateFlingButtons()
+end
+
+-- === КНОПКА ЗАКРЫТИЯ: ЛОГИКА ===
+closeBtn.MouseButton1Click:Connect(function()
+    _G.TabInjected = false
+
+    FlingActive = false
+    flingingTarget = nil
+
+    resetCamera()
+
+    if isNoclip then
+        setCharacterCollision(true)
+    end
+
+    if isESP then
+        clearAllESP()
+    end
+
+    sg:Destroy()
+end)
+
+-- === ОБНОВЛЕНИЕ СПИСКА ИГРОКОВ ===
+local function refresh()
+    if not isAlive() then
+        return
+    end
+
+    for _, v in pairs(scroll:GetChildren()) do
+        if v:IsA("GuiObject") then
+            v:Destroy()
+        end
+    end
+
+    local query = string.lower(searchQuery)
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player then
+            local lowerName = string.lower(p.Name)
+            local lowerDisplay = string.lower(p.DisplayName)
+
+            local visible = query == ""
+                or string.find(lowerName, query, 1, true) ~= nil
+                or string.find(lowerDisplay, query, 1, true) ~= nil
+
+            if visible then
+                local card = Instance.new("Frame")
+                card.Name = p.Name
+                card.Size = UDim2.new(1, -5, 0, 56)
+                card.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                card.Parent = scroll
+
+                Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+                local avatar = Instance.new("ImageLabel")
+                avatar.Size = UDim2.new(0, 40, 0, 40)
+                avatar.Position = UDim2.new(0, 6, 0.5, -20)
+                avatar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. p.UserId .. "&w=150&h=150"
+                avatar.Parent = card
+
+                Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
+
+                local dName = Instance.new("TextLabel")
+                dName.Size = UDim2.new(1, -140, 0, 16)
+                dName.Position = UDim2.new(0, 54, 0, 12)
+                dName.BackgroundTransparency = 1
+                dName.Text = p.DisplayName
+                dName.TextColor3 = Color3.new(1, 1, 1)
+                dName.Font = Enum.Font.GothamBold
+                dName.TextSize = 13
+                dName.TextXAlignment = Enum.TextXAlignment.Left
+                dName.TextTruncate = Enum.TextTruncate.AtEnd
+                dName.Parent = card
+
+                local uName = Instance.new("TextLabel")
+                uName.Size = UDim2.new(1, -140, 0, 14)
+                uName.Position = UDim2.new(0, 54, 0, 28)
+                uName.BackgroundTransparency = 1
+                uName.Text = "@" .. p.Name
+                uName.TextColor3 = SECONDARY_TEXT
+                uName.Font = Enum.Font.Gotham
+                uName.TextSize = 11
+                uName.TextXAlignment = Enum.TextXAlignment.Left
+                uName.TextTruncate = Enum.TextTruncate.AtEnd
+                uName.Parent = card
+
+                -- FLING BUTTON
+                local flBtn = Instance.new("ImageButton")
+                flBtn.Name = "FlingButton"
+                flBtn.Size = UDim2.new(0, 28, 0, 30)
+                flBtn.Position = UDim2.new(1, -96, 0.5, -15)
+                flBtn.BackgroundTransparency = 1
+                flBtn.Image = "rbxassetid://136610541521358"
+                flBtn.ImageColor3 = Color3.new(1, 1, 1)
+                flBtn.ScaleType = Enum.ScaleType.Fit
+                flBtn.ClipsDescendants = true
+                flBtn.Parent = card
+
+                Instance.new("UICorner", flBtn).CornerRadius = UDim.new(0, 6)
+
+                if flingingTarget == p then
+                    flBtn.ImageColor3 = ACCENT_COLOR
+                end
+
+                flBtn.MouseButton1Click:Connect(function()
+                    if flingingTarget == p then
+                        FlingActive = false
+                        flingingTarget = nil
+                        updateFlingButtons()
+                    elseif not FlingActive then
+                        task.spawn(function()
+                            SkidFling(p)
+                        end)
+                    end
+                end)
+
+                -- TELEPORT BUTTON
+                local tpBtn = Instance.new("ImageButton")
+                tpBtn.Name = "TeleportButton"
+                tpBtn.Size = UDim2.new(0, 28, 0, 30)
+                tpBtn.Position = UDim2.new(1, -64, 0.5, -15)
+                tpBtn.BackgroundTransparency = 1
+                tpBtn.Image = "rbxassetid://6723742952"
+                tpBtn.ImageColor3 = Color3.new(1, 1, 1)
+                tpBtn.ScaleType = Enum.ScaleType.Fit
+                tpBtn.ClipsDescendants = true
+                tpBtn.Parent = card
+
+                Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 6)
+
+                tpBtn.MouseButton1Click:Connect(function()
+                    teleportToPlayer(p)
+                end)
+
+                -- SPECTATE BUTTON
+                local specBtn = Instance.new("TextButton")
+                specBtn.Name = "SpecButton"
+                specBtn.Size = UDim2.new(0, 28, 0, 30)
+                specBtn.Position = UDim2.new(1, -32, 0.5, -15)
+                specBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                specBtn.Text = "👁"
+                specBtn.Font = Enum.Font.GothamBold
+                specBtn.TextSize = 14
+                specBtn.Parent = card
+
+                Instance.new("UICorner", specBtn).CornerRadius = UDim.new(0, 6)
+
+                if spectating == p then
+                    specBtn.TextColor3 = ACCENT_COLOR
+                else
+                    specBtn.TextColor3 = Color3.new(1, 1, 1)
+                end
+
+                specBtn.MouseButton1Click:Connect(function()
+                    if spectating == p then
+                        resetCamera()
+                    else
+                        spectatePlayer(p)
+                    end
+
+                    updateSpecButtons()
+                end)
+            end
+        end
+    end
+
+    scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 5)
+    updateSpecButtons()
+    updateFlingButtons()
+end
+
+-- === НИЖНЯЯ ПАНЕЛЬ: ТОЛЬКО NOCLIP И ESP ===
 local utilityFrame = Instance.new("Frame")
 utilityFrame.Size = UDim2.new(1, -20, 0, 45)
-utilityFrame.Position = UDim2.new(0, 10, 1, -50)
+utilityFrame.Position = UDim2.new(0, 10, 1, -52)
 utilityFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 utilityFrame.Parent = frame
+
 Instance.new("UICorner", utilityFrame).CornerRadius = UDim.new(0, 6)
 
 local uLayout = Instance.new("UIListLayout", utilityFrame)
@@ -201,135 +672,235 @@ uLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 uLayout.Padding = UDim.new(0, 10)
 
 local function createUtilBtn(text)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(0, 75, 0, 30)
-	btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-	btn.Text = text
-	btn.TextColor3 = Color3.new(1, 1, 1)
-	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 12
-	btn.Parent = utilityFrame
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-	return btn
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 105, 0, 30)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.Parent = utilityFrame
+
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+    return btn
 end
 
 local noclipBtn = createUtilBtn("NOCLIP")
 local espBtn = createUtilBtn("ESP")
-local unspecBtn = createUtilBtn("UN-SPEC")
 
--- Логика Un-Spectate (Вернуть камеру себе)
-unspecBtn.MouseButton1Click:Connect(function()
-	if player.Character and player.Character:FindFirstChild("Humanoid") then
-		camera.CameraSubject = player.Character.Humanoid
-		spectating = nil
-	end
-end)
-
--- Логика Noclip
 noclipBtn.MouseButton1Click:Connect(function()
-	isNoclip = not isNoclip
-	noclipBtn.TextColor3 = isNoclip and ACCENT_COLOR or Color3.new(1, 1, 1)
-end)
+    isNoclip = not isNoclip
+    noclipBtn.TextColor3 = isNoclip and ACCENT_COLOR or Color3.new(1, 1, 1)
 
-RunService.Stepped:Connect(function()
-	if isNoclip and player.Character then
-		for _, part in pairs(player.Character:GetDescendants()) do
-			if part:IsA("BasePart") and part.CanCollide then
-				part.CanCollide = false
-			end
-		end
-	end
-end)
-
--- Логика ESP (Подсветка игроков)
--- === ИСПРАВЛЕННЫЙ БЛОК ESP ===
-local ESP_FOLDER = Instance.new("Folder")
-ESP_FOLDER.Name = "ESP_Highlights"
--- Используем result (это и есть CoreGui), который мы получили через pcall в начале твоего скрипта
-ESP_FOLDER.Parent = success and result or player:WaitForChild("PlayerGui")
-
-espBtn.MouseButton1Click:Connect(function()
-    isESP = not isESP
-    espBtn.TextColor3 = isESP and ACCENT_COLOR or Color3.new(1, 1, 1)
-    
-    if not isESP then
-        ESP_FOLDER:ClearAllChildren()
+    if not isNoclip then
+        setCharacterCollision(true)
     end
 end)
 
--- Обновление ESP в реальном времени
-RunService.RenderStepped:Connect(function()
-    if not isESP then return end
-    
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local highlightName = p.Name .. "_ESP"
-            local highlight = ESP_FOLDER:FindFirstChild(highlightName)
-            
-            -- Если подсветки еще нет — создаем
-            if not highlight then
-                highlight = Instance.new("Highlight")
-                highlight.Name = highlightName
-                highlight.FillColor = ACCENT_COLOR
-                highlight.FillTransparency = 0.5
-                highlight.OutlineColor = Color3.new(1, 1, 1)
-                highlight.Parent = ESP_FOLDER
-            end
-            
-            -- ВАЖНО: Привязываем подсветку к актуальному персонажу (исправляет баг после респавна)
-            if highlight.Adornee ~= p.Character then
-                highlight.Adornee = p.Character
-            end
+espBtn.MouseButton1Click:Connect(function()
+    if not highlightSupported then
+        return
+    end
+
+    isESP = not isESP
+    espBtn.TextColor3 = isESP and ACCENT_COLOR or Color3.new(1, 1, 1)
+
+    if not isESP then
+        clearAllESP()
+    end
+end)
+
+-- === NOCLIP LOOP ===
+RunService.Stepped:Connect(function()
+    if not isAlive() then
+        return
+    end
+
+    if not isNoclip then
+        return
+    end
+
+    local char = player.Character
+    if not char then
+        return
+    end
+
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
         end
     end
 end)
--- === КОНЕЦ БЛОКА ESP ===
 
--- Обновление поиска при вводе
+-- === ESP LOOP ===
+RunService.RenderStepped:Connect(function()
+    if not isAlive() then
+        return
+    end
+
+    if not isESP or not highlightSupported then
+        return
+    end
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character then
+            local h = p.Character:FindFirstChild("CombinedESP_Highlight")
+
+            if not h then
+                h = Instance.new("Highlight")
+                h.Name = "CombinedESP_Highlight"
+                h.FillColor = ACCENT_COLOR
+                h.FillTransparency = 0.5
+                h.OutlineColor = Color3.new(1, 1, 1)
+                h.Parent = p.Character
+            end
+
+            h.Adornee = p.Character
+        end
+    end
+end)
+
+-- === ПОИСК ===
 searchBar:GetPropertyChangedSignal("Text"):Connect(function()
-	searchQuery = searchBar.Text
-	refresh()
+    if not isAlive() then
+        return
+    end
+
+    searchQuery = searchBar.Text
+    refresh()
 end)
 
--- Логика F2
-UIS.InputBegan:Connect(function(input, gp)
-	if gp then return end
-	if input.KeyCode == Enum.KeyCode.F2 then
-		frame.Visible = not frame.Visible
-	end
+-- === F2 ===
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not isAlive() then
+        return
+    end
+
+    if gameProcessed then
+        return
+    end
+
+    if input.KeyCode == Enum.KeyCode.F2 then
+        frame.Visible = not frame.Visible
+    end
 end)
 
--- Логика Drag
-local dragging, dragStart, startPos
+-- === ПЕРЕТАСКИВАНИЕ ОКНА ===
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
 frame.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPos = frame.Position
-	end
+    if not isAlive() then
+        return
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+    end
 end)
 
-UIS.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local delta = input.Position - dragStart
-		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	end
+UserInputService.InputChanged:Connect(function(input)
+    if not isAlive() then
+        return
+    end
+
+    if dragging and dragStart and startPos and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
 end)
 
-UIS.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+UserInputService.InputEnded:Connect(function(input)
+    if not isAlive() then
+        return
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
 end)
 
--- Инициализация
-refresh()
-Players.PlayerAdded:Connect(refresh)
+-- === ФОНОВЫЙ ЦИКЛ ДЛЯ SPECTATE И FLING ===
+task.spawn(function()
+    while isAlive() do
+        task.wait(0.5)
+
+        if not isAlive() then
+            break
+        end
+
+        if not scroll or not scroll.Parent then
+            break
+        end
+
+        if spectating then
+            if not spectating.Parent then
+                resetCamera()
+                updateSpecButtons()
+            else
+                local cam = workspace.CurrentCamera
+                local char = spectating.Character
+
+                if cam and char then
+                    local hum = char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("Humanoid")
+
+                    if hum and cam.CameraSubject ~= hum then
+                        cam.CameraSubject = hum
+                    end
+                end
+            end
+        end
+
+        if flingingTarget and not flingingTarget.Parent then
+            FlingActive = false
+            flingingTarget = nil
+            updateFlingButtons()
+        end
+    end
+end)
+
+-- === ИВЕНТЫ ИГРОКОВ ===
+Players.PlayerAdded:Connect(function()
+    if isAlive() then
+        refresh()
+    end
+end)
+
 Players.PlayerRemoving:Connect(function(p)
-	-- Чистим ESP и сбрасываем камеру, если игрок ливнул
-	if ESP_FOLDER:FindFirstChild(p.Name .. "_ESP") then
-		ESP_FOLDER[p.Name .. "_ESP"]:Destroy()
-	end
-	if spectating == p then
-		unspecBtn.MouseButton1Click:Fire()
-	end
-	refresh()
+    if not isAlive() then
+        return
+    end
+
+    if p.Character then
+        local h = p.Character:FindFirstChild("CombinedESP_Highlight")
+        if h then
+            h:Destroy()
+        end
+    end
+
+    if spectating == p then
+        resetCamera()
+        updateSpecButtons()
+    end
+
+    if flingingTarget == p then
+        FlingActive = false
+        flingingTarget = nil
+        updateFlingButtons()
+    end
+
+    refresh()
 end)
+
+-- === СТАРТ ===
+refresh()
