@@ -4,6 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
 
 local ok, VRS = pcall(function()
     return game:GetService("VirtualInputManager")
@@ -14,8 +15,245 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local mouse = player:GetMouse()
 
+local Player = player
+
+if not getgenv then
+    pcall(function()
+        getgenv = function()
+            return _G
+        end
+    end)
+end
+
+if getgenv then
+    if getgenv().OldPos == nil then
+        getgenv().OldPos = nil
+    end
+
+    if getgenv().FPDH == nil then
+        pcall(function()
+            getgenv().FPDH = workspace.FallenPartsDestroyHeight
+        end)
+    end
+end
+
+local FlingActive = false
+
 -- =========================================================
--- [ЭКРАННЫЕ ФУНКЦИИ И КЛИК]
+-- [SAVE SYSTEM]
+-- =========================================================
+local toggleRegistry = {}
+local keybindRegistry = {}
+
+local SAVE_FILE = "normalniy_mm2_v5_5_settings.json"
+local OLD_SAVE_FILE = "xeno_v5_settings.json"
+local SAVE_TOGGLE_FILE = "normalniy_mm2_save_enabled.txt"
+
+local function LoadSaveEnabled()
+    local okLoad, result = pcall(function()
+        if readfile and isfile and isfile(SAVE_TOGGLE_FILE) then
+            local content = readfile(SAVE_TOGGLE_FILE)
+            content = content and content:gsub("%s+", "") or ""
+            return content == "true"
+        end
+    end)
+
+    if okLoad and type(result) == "boolean" then
+        return result
+    end
+
+    return true
+end
+
+local initialSaveEnabled = LoadSaveEnabled()
+
+local defaultSettings = {
+    ESP_Murderer = false,
+    ESP_Sheriff = false,
+    ESP_Innocent = false,
+    ESP_Gun = false,
+    Tracers = false,
+    Chams = false,
+    Fullbright = false,
+    AlwaysDay = false,
+    AlwaysNight = false,
+    FOV = 70,
+    RealisticShaders = false,
+    SaveSettings = initialSaveEnabled,
+
+    Fling = false,
+    FlingSheriff = false,
+    FlingMurderer = false,
+    FlingMurdererIfDied = false,
+    FlingDirection = "Down",
+    FlingSpeed = 500,
+
+    GunAimbot = false,
+    AimbotSmooth = 10,
+    AimbotFOV = 360,
+    AutoShoot = false,
+    AutoGrabGun = false,
+    AllowRelativeMouse = false,
+
+    MurdererAura = false,
+    KillAuraRange = 20,
+    HitboxExpander = false,
+
+    SpeedHack = false,
+    SpeedValue = 25,
+    InfJump = false,
+    Noclip = false,
+    Fly = false,
+    FlySpeed = 50,
+    Spin = false,
+    AntiFling = false,
+    CtrlClickTP = false,
+
+    AutoFarmCoins = false,
+    RemoveDoors = false,
+    WaterWalk = false,
+
+    SheriffAutoKill = false,
+    Tornado = false,
+    ChatSpam = false,
+    SpamText = "NORMALNIY MM2 V5.5 dominates this server!",
+    FakeLag = false
+}
+
+local function LoadSettings()
+    local success, result = pcall(function()
+        if writefile and readfile and isfile then
+            if isfile(SAVE_FILE) then
+                local data = readfile(SAVE_FILE)
+                return HttpService:JSONDecode(data)
+            end
+
+            if isfile(OLD_SAVE_FILE) then
+                local data = readfile(OLD_SAVE_FILE)
+                return HttpService:JSONDecode(data)
+            end
+        end
+    end)
+
+    if success and type(result) == "table" then
+        return result
+    end
+
+    return defaultSettings
+end
+
+local savedData = LoadSettings()
+
+_G.XenoV5 = {}
+
+for key, value in pairs(defaultSettings) do
+    if savedData[key] ~= nil then
+        _G.XenoV5[key] = savedData[key]
+    else
+        _G.XenoV5[key] = value
+    end
+end
+
+_G.XenoV5.SaveSettings = initialSaveEnabled
+_G.IsTeleporting = false
+
+local function SaveSettings(force)
+    if not force and not _G.XenoV5.SaveSettings then
+        return
+    end
+
+    pcall(function()
+        if writefile then
+            local data = {
+                ESP_Murderer = _G.XenoV5.ESP_Murderer,
+                ESP_Sheriff = _G.XenoV5.ESP_Sheriff,
+                ESP_Innocent = _G.XenoV5.ESP_Innocent,
+                ESP_Gun = _G.XenoV5.ESP_Gun,
+                Tracers = _G.XenoV5.Tracers,
+                Chams = _G.XenoV5.Chams,
+                Fullbright = _G.XenoV5.Fullbright,
+                AlwaysDay = _G.XenoV5.AlwaysDay,
+                AlwaysNight = _G.XenoV5.AlwaysNight,
+                FOV = _G.XenoV5.FOV,
+                RealisticShaders = _G.XenoV5.RealisticShaders,
+                SaveSettings = _G.XenoV5.SaveSettings,
+
+                Fling = _G.XenoV5.Fling,
+                FlingSheriff = _G.XenoV5.FlingSheriff,
+                FlingMurderer = _G.XenoV5.FlingMurderer,
+                FlingMurdererIfDied = _G.XenoV5.FlingMurdererIfDied,
+                FlingDirection = _G.XenoV5.FlingDirection,
+                FlingSpeed = _G.XenoV5.FlingSpeed,
+
+                GunAimbot = _G.XenoV5.GunAimbot,
+                AimbotSmooth = _G.XenoV5.AimbotSmooth,
+                AimbotFOV = _G.XenoV5.AimbotFOV,
+                AutoShoot = _G.XenoV5.AutoShoot,
+                AutoGrabGun = _G.XenoV5.AutoGrabGun,
+                AllowRelativeMouse = _G.XenoV5.AllowRelativeMouse,
+
+                MurdererAura = _G.XenoV5.MurdererAura,
+                KillAuraRange = _G.XenoV5.KillAuraRange,
+                HitboxExpander = _G.XenoV5.HitboxExpander,
+
+                SpeedHack = _G.XenoV5.SpeedHack,
+                SpeedValue = _G.XenoV5.SpeedValue,
+                InfJump = _G.XenoV5.InfJump,
+                Noclip = _G.XenoV5.Noclip,
+                Fly = _G.XenoV5.Fly,
+                FlySpeed = _G.XenoV5.FlySpeed,
+                Spin = _G.XenoV5.Spin,
+                AntiFling = _G.XenoV5.AntiFling,
+                CtrlClickTP = _G.XenoV5.CtrlClickTP,
+
+                AutoFarmCoins = _G.XenoV5.AutoFarmCoins,
+                RemoveDoors = _G.XenoV5.RemoveDoors,
+                WaterWalk = _G.XenoV5.WaterWalk,
+
+                SheriffAutoKill = _G.XenoV5.SheriffAutoKill,
+                Tornado = _G.XenoV5.Tornado,
+                ChatSpam = _G.XenoV5.ChatSpam,
+                SpamText = _G.XenoV5.SpamText,
+                FakeLag = _G.XenoV5.FakeLag,
+
+                keybinds = {}
+            }
+
+            for _, entry in pairs(keybindRegistry) do
+                if entry.id and entry.key then
+                    data.keybinds[entry.id] = {
+                        key = entry.key.Name
+                    }
+                end
+            end
+
+            writefile(SAVE_FILE, HttpService:JSONEncode(data))
+        end
+    end)
+end
+
+local saveDebounce = false
+
+local function RequestSave()
+    if saveDebounce then return end
+    saveDebounce = true
+
+    task.delay(0.5, function()
+        saveDebounce = false
+        SaveSettings(false)
+    end)
+end
+
+local function SaveSettingsToggleFile(state)
+    pcall(function()
+        if writefile then
+            writefile(SAVE_TOGGLE_FILE, state and "true" or "false")
+        end
+    end)
+end
+
+-- =========================================================
+-- [CLICK / MOUSE]
 -- =========================================================
 local function GetScreenCenter()
     if not camera then return Vector2.new(0, 0) end
@@ -119,71 +357,15 @@ local function DoMouseClick()
 end
 
 -- =========================================================
--- [ГЛОБАЛЬНЫЕ НАСТРОЙКИ]
+-- [NOTIFY]
 -- =========================================================
-_G.XenoV5 = {
-    ESP_Murderer = false,
-    ESP_Sheriff = false,
-    ESP_Innocent = false,
-    ESP_Gun = false,
-    Tracers = false,
-    Chams = false,
-    Fullbright = false,
-    AlwaysDay = false,
-    AlwaysNight = false,
-    FOV = 70,
-
-    Fling = false,
-    FlingMurderer = false,
-    FlingSheriff = false,
-
-    GunAimbot = false,
-    AimbotSmooth = 10,
-    AimbotFOV = 360,
-    AutoShoot = false,
-    AutoGrabGun = false,
-    AllowRelativeMouse = false,
-
-    MurdererAura = false,
-    KillAuraRange = 20,
-    HitboxExpander = false,
-
-    SpeedHack = false,
-    SpeedValue = 25,
-    InfJump = false,
-    Noclip = false,
-    Fly = false,
-    FlySpeed = 50,
-    Spin = false,
-    AntiFling = false,
-    CtrlClickTP = false,
-
-    AutoFarmCoins = false,
-    RemoveDoors = false,
-    WaterWalk = false,
-
-    SheriffAutoKill = false,
-    Tornado = false,
-    ChatSpam = false,
-    SpamText = "Xeno V5 Titan dominates this server!",
-    FakeLag = false,
-
-    FlingActive = true
-}
-
-_G.IsTeleporting = false
-
 local origAmbient = Lighting.Ambient
 local origBrightness = Lighting.Brightness
-local origTime = Lighting.ClockTime
 
--- =========================================================
--- [УВЕДОМЛЕНИЯ]
--- =========================================================
 local function Notify(title, text, duration)
     pcall(function()
         game.StarterGui:SetCore("SendNotification", {
-            Title = "☣️ " .. title,
+            Title = "🔥 " .. title,
             Text = text,
             Duration = duration or 3,
             Icon = "rbxassetid://6023426923"
@@ -192,11 +374,150 @@ local function Notify(title, text, duration)
 end
 
 -- =========================================================
--- [GUI]
+-- [REALISTIC SHADERS - DARK / SUNRISE CINEMATIC]
 -- =========================================================
-local uiName = "XenoV5_Titan_Pro"
-if CoreGui:FindFirstChild(uiName) then CoreGui[uiName]:Destroy() end
-if player.PlayerGui:FindFirstChild(uiName) then player.PlayerGui[uiName]:Destroy() end
+local shaderFolder = nil
+local shaderOriginals = nil
+
+local function SetLightingProperty(prop, value)
+    pcall(function()
+        Lighting[prop] = value
+    end)
+end
+
+local function ApplyRealisticShaders()
+    if shaderFolder then
+        shaderFolder:Destroy()
+        shaderFolder = nil
+    end
+
+    if not shaderOriginals then
+        shaderOriginals = {
+            Technology = Lighting.Technology,
+            ClockTime = Lighting.ClockTime,
+            GeographicLatitude = Lighting.GeographicLatitude,
+            Ambient = Lighting.Ambient,
+            OutdoorAmbient = Lighting.OutdoorAmbient,
+            Brightness = Lighting.Brightness,
+            GlobalShadows = Lighting.GlobalShadows,
+            EnvironmentDiffuseScale = Lighting.EnvironmentDiffuseScale,
+            EnvironmentSpecularScale = Lighting.EnvironmentSpecularScale,
+            ShadowSoftness = Lighting.ShadowSoftness,
+            FogStart = Lighting.FogStart,
+            FogEnd = Lighting.FogEnd,
+            FogColor = Lighting.FogColor,
+            ColorShift_Top = Lighting.ColorShift_Top,
+            ColorShift_Bottom = Lighting.ColorShift_Bottom
+        }
+    end
+
+    shaderFolder = Instance.new("Folder")
+    shaderFolder.Name = "NormalniyRealisticShaders"
+    shaderFolder.Parent = Lighting
+
+    pcall(function()
+        Lighting.Technology = Enum.Technology.Future
+    end)
+
+    -- Тёмная красивая заря / кинематографичный свет
+    SetLightingProperty("ClockTime", 5.65)
+    SetLightingProperty("GeographicLatitude", 35)
+    SetLightingProperty("GlobalShadows", true)
+    SetLightingProperty("Brightness", 1.45)
+    SetLightingProperty("Ambient", Color3.fromRGB(22, 26, 38))
+    SetLightingProperty("OutdoorAmbient", Color3.fromRGB(26, 36, 58))
+    SetLightingProperty("EnvironmentDiffuseScale", 0.65)
+    SetLightingProperty("EnvironmentSpecularScale", 0.45)
+    SetLightingProperty("ShadowSoftness", 0.35)
+    SetLightingProperty("FogStart", 0)
+    SetLightingProperty("FogEnd", 2500)
+    SetLightingProperty("FogColor", Color3.fromRGB(18, 22, 30))
+    SetLightingProperty("ColorShift_Top", Color3.fromRGB(70, 90, 150))
+    SetLightingProperty("ColorShift_Bottom", Color3.fromRGB(255, 110, 40))
+
+    local sky = Instance.new("Sky")
+    sky.Name = "RealisticSky"
+    pcall(function()
+        sky.StarCount = 3500
+        sky.MoonAngularSize = 12
+        sky.SunAngularSize = 6
+        sky.CelestialBodiesShown = true
+    end)
+    sky.Parent = shaderFolder
+
+    local atmosphere = Instance.new("Atmosphere")
+    atmosphere.Name = "RealisticAtmosphere"
+    atmosphere.Density = 0.52
+    atmosphere.Offset = 0.12
+    atmosphere.Color = Color3.fromRGB(135, 150, 190)
+    atmosphere.Decay = Color3.fromRGB(68, 78, 105)
+    atmosphere.Glare = 0.55
+    atmosphere.Haze = 4.5
+    atmosphere.Parent = shaderFolder
+
+    local cc = Instance.new("ColorCorrectionEffect")
+    cc.Name = "RealisticColorCorrection"
+    cc.Contrast = 0.28
+    cc.Saturation = 0.12
+    cc.Brightness = -0.04
+    cc.TintColor = Color3.fromRGB(235, 240, 255)
+    cc.Parent = shaderFolder
+
+    local bloom = Instance.new("BloomEffect")
+    bloom.Name = "RealisticBloom"
+    bloom.Intensity = 0.42
+    bloom.Size = 32
+    bloom.Threshold = 2.05
+    bloom.Parent = shaderFolder
+
+    local sunRays = Instance.new("SunRaysEffect")
+    sunRays.Name = "RealisticSunRays"
+    sunRays.Intensity = 0.16
+    sunRays.Spread = 0.85
+    sunRays.Parent = shaderFolder
+
+    local dof = Instance.new("DepthOfFieldEffect")
+    dof.Name = "RealisticDepthOfField"
+    dof.FarIntensity = 0.14
+    dof.FocusDistance = 28
+    dof.InFocusRadius = 18
+    dof.NearIntensity = 0.1
+    dof.Parent = shaderFolder
+end
+
+local function RemoveRealisticShaders()
+    if shaderFolder then
+        shaderFolder:Destroy()
+        shaderFolder = nil
+    end
+
+    if shaderOriginals then
+        for prop, value in pairs(shaderOriginals) do
+            SetLightingProperty(prop, value)
+        end
+
+        shaderOriginals = nil
+    end
+
+    if _G.XenoV5.Fullbright then
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2
+    end
+end
+
+if _G.XenoV5.RealisticShaders then
+    ApplyRealisticShaders()
+end
+
+-- =========================================================
+-- [GUI BASE]
+-- =========================================================
+local uiName = "NormalniyMM2V5_5"
+
+for _, name in pairs({"XenoV5_Titan_Pro", "NormalniyMM2V5_5"}) do
+    if CoreGui:FindFirstChild(name) then CoreGui[name]:Destroy() end
+    if player.PlayerGui:FindFirstChild(name) then player.PlayerGui[name]:Destroy() end
+end
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = uiName
@@ -211,27 +532,30 @@ if not success then
 end
 
 local main = Instance.new("Frame", screenGui)
-main.Size = UDim2.new(0, 580, 0, 420)
-main.Position = UDim2.new(0.5, -290, 0.5, -210)
-main.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+main.Size = UDim2.new(0, 640, 0, 480)
+main.Position = UDim2.new(0.5, -320, 0.5, -240)
+main.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+main.BackgroundTransparency = 0.1
 main.BorderSizePixel = 0
 main.ClipsDescendants = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
 
 local stroke = Instance.new("UIStroke", main)
 stroke.Color = Color3.fromRGB(0, 255, 128)
-stroke.Thickness = 2
+stroke.Thickness = 2.5
+stroke.Transparency = 0.1
 
 local topBar = Instance.new("Frame", main)
-topBar.Size = UDim2.new(1, 0, 0, 35)
-topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 8)
+topBar.Size = UDim2.new(1, 0, 0, 40)
+topBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+topBar.BackgroundTransparency = 0.15
+Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 12)
 
 local title = Instance.new("TextLabel", topBar)
 title.Size = UDim2.new(1, -50, 1, 0)
-title.Position = UDim2.new(0, 10, 0, 0)
+title.Position = UDim2.new(0, 15, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "XENO V5.7 FULL FIX | MM2"
+title.Text = "NORMALNIY MM2 V5.5"
 title.TextColor3 = Color3.fromRGB(0, 255, 128)
 title.Font = Enum.Font.GothamBlack
 title.TextSize = 16
@@ -271,45 +595,55 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 local closeBtn = Instance.new("TextButton", topBar)
-closeBtn.Size = UDim2.new(0, 35, 0, 35)
-closeBtn.Position = UDim2.new(1, -35, 0, 0)
+closeBtn.Size = UDim2.new(0, 40, 0, 40)
+closeBtn.Position = UDim2.new(1, -40, 0, 0)
 closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
-closeBtn.Font = Enum.Font.GothamBlack
-closeBtn.TextSize = 18
+closeBtn.Text = ""
+
+local closeIcon = Instance.new("ImageLabel", closeBtn)
+closeIcon.Size = UDim2.new(0, 22, 0, 22)
+closeIcon.Position = UDim2.new(0.5, -11, 0.5, -11)
+closeIcon.BackgroundTransparency = 1
+closeIcon.Image = "rbxassetid://5198838744"
+closeIcon.ImageColor3 = Color3.fromRGB(255, 80, 80)
+
 closeBtn.MouseButton1Click:Connect(function()
+    SaveSettings(false)
     screenGui:Destroy()
 end)
 
 local sidebar = Instance.new("Frame", main)
-sidebar.Size = UDim2.new(0, 140, 1, -35)
-sidebar.Position = UDim2.new(0, 0, 0, 35)
-sidebar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+sidebar.Size = UDim2.new(0, 150, 1, -40)
+sidebar.Position = UDim2.new(0, 0, 0, 40)
+sidebar.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+sidebar.BackgroundTransparency = 0.2
 sidebar.BorderSizePixel = 0
 
 local content = Instance.new("Frame", main)
-content.Size = UDim2.new(1, -140, 1, -35)
-content.Position = UDim2.new(0, 140, 0, 35)
+content.Size = UDim2.new(1, -150, 1, -40)
+content.Position = UDim2.new(0, 150, 0, 40)
 content.BackgroundTransparency = 1
 
 local pages = {}
 
 local tabLayout = Instance.new("UIListLayout", sidebar)
 tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-tabLayout.Padding = UDim.new(0, 2)
+tabLayout.Padding = UDim.new(0, 3)
 
-local toggleRegistry = {}
+-- =========================================================
+-- [TOGGLE / KEYBIND CORE]
+-- =========================================================
+local activeBinding = nil
 
 local function UpdateToggleVisual(flag, state)
     pcall(function()
         for _, data in pairs(toggleRegistry) do
             if data.flag == flag then
-                TweenService:Create(data.circle, TweenInfo.new(0.2), {
+                TweenService:Create(data.circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                     Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
                 }):Play()
 
-                TweenService:Create(data.btn, TweenInfo.new(0.2), {
+                TweenService:Create(data.btn, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                     BackgroundColor3 = state and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(50, 50, 50)
                 }):Play()
             end
@@ -317,16 +651,144 @@ local function UpdateToggleVisual(flag, state)
     end)
 end
 
+local function SetFlag(flag, value, save)
+    if _G.XenoV5[flag] == value then return end
+
+    _G.XenoV5[flag] = value
+    UpdateToggleVisual(flag, value)
+
+    for _, data in pairs(toggleRegistry) do
+        if data.flag == flag and data.callback then
+            pcall(data.callback, value)
+        end
+    end
+
+    if save ~= false then
+        RequestSave()
+    end
+end
+
+local function UpdateKeybindText(entry)
+    pcall(function()
+        if entry and entry.btn then
+            entry.btn.Text = entry.key and ("[" .. entry.key.Name .. "]") or "[ None ]"
+        end
+    end)
+end
+
+local function StartBinding(entry)
+    if activeBinding then
+        UpdateKeybindText(activeBinding)
+    end
+
+    activeBinding = entry
+
+    pcall(function()
+        entry.btn.Text = "[ Press ]"
+        entry.btn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+    end)
+end
+
+local function CancelBinding(entry)
+    activeBinding = nil
+    pcall(function()
+        entry.btn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    end)
+    UpdateKeybindText(entry)
+end
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+
+    local focused = nil
+    pcall(function()
+        focused = UserInputService:GetFocusedTextBox()
+    end)
+    if focused then return end
+
+    if activeBinding then
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            local entry = activeBinding
+            local key = input.KeyCode
+
+            if key == Enum.KeyCode.Escape then
+                CancelBinding(entry)
+            elseif key == Enum.KeyCode.Backspace then
+                entry.key = nil
+                activeBinding = nil
+                pcall(function()
+                    entry.btn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+                end)
+                UpdateKeybindText(entry)
+                RequestSave()
+            elseif key ~= Enum.KeyCode.Unknown then
+                for _, other in pairs(keybindRegistry) do
+                    if other ~= entry and other.key == key then
+                        other.key = nil
+                        UpdateKeybindText(other)
+                    end
+                end
+
+                entry.key = key
+                activeBinding = nil
+                pcall(function()
+                    entry.btn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+                end)
+                UpdateKeybindText(entry)
+                RequestSave()
+            end
+        elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 then
+            local entry = activeBinding
+            CancelBinding(entry)
+        end
+
+        return
+    end
+
+    local keyHandled = false
+
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        for _, entry in pairs(keybindRegistry) do
+            if entry.key and input.KeyCode == entry.key then
+                keyHandled = true
+
+                if entry.type == "toggle" then
+                    SetFlag(entry.flag, not _G.XenoV5[entry.flag])
+                elseif entry.type == "action" and entry.callback then
+                    pcall(entry.callback)
+                end
+            end
+        end
+    end
+
+    if not keyHandled then
+        if input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.F4 then
+            main.Visible = not main.Visible
+        end
+    end
+
+    if input.KeyCode == Enum.KeyCode.Space and _G.XenoV5.InfJump then
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+-- =========================================================
+-- [UI FUNCTIONS]
+-- =========================================================
 local function CreateTab(name, icon)
     local btn = Instance.new("TextButton", sidebar)
-    btn.Size = UDim2.new(1, 0, 0, 35)
-    btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    btn.Size = UDim2.new(1, 0, 0, 38)
+    btn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    btn.BackgroundTransparency = 0.1
     btn.Text = " " .. icon .. " " .. name
-    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
     btn.Font = Enum.Font.GothamSemibold
     btn.TextSize = 13
     btn.TextXAlignment = Enum.TextXAlignment.Left
     btn.BorderSizePixel = 0
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
     local page = Instance.new("ScrollingFrame", content)
     page.Size = UDim2.new(1, 0, 1, 0)
@@ -334,22 +796,29 @@ local function CreateTab(name, icon)
     page.Visible = false
     page.ScrollBarThickness = 3
     page.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 128)
+    page.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+    pcall(function()
+        page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    end)
 
     local layout = Instance.new("UIListLayout", page)
-    layout.Padding = UDim.new(0, 5)
+    layout.Padding = UDim.new(0, 6)
     layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
     local pad = Instance.new("UIPadding", page)
-    pad.PaddingTop = UDim.new(0, 10)
-    pad.PaddingBottom = UDim.new(0, 10)
+    pad.PaddingTop = UDim.new(0, 12)
+    pad.PaddingBottom = UDim.new(0, 12)
 
     btn.MouseButton1Click:Connect(function()
         for _, p in pairs(pages) do
             p.Page.Visible = false
-            p.Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+            p.Btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            p.Btn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
         end
         page.Visible = true
         btn.TextColor3 = Color3.fromRGB(0, 255, 128)
+        btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     end)
 
     table.insert(pages, {Btn = btn, Page = page, Name = name})
@@ -358,15 +827,15 @@ end
 
 local function CreateSection(parent, text)
     local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(0.95, 0, 0, 20)
+    frame.Size = UDim2.new(0.95, 0, 0, 22)
     frame.BackgroundTransparency = 1
 
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(1, -10, 1, 0)
     label.Position = UDim2.new(0, 5, 0, 0)
     label.BackgroundTransparency = 1
-    label.Text = "[ " .. text:upper() .. " ]"
-    label.TextColor3 = Color3.fromRGB(0, 200, 100)
+    label.Text = "◈ " .. text:upper() .. " ◈"
+    label.TextColor3 = Color3.fromRGB(0, 220, 110)
     label.Font = Enum.Font.GothamBlack
     label.TextSize = 11
     label.TextXAlignment = Enum.TextXAlignment.Left
@@ -378,64 +847,145 @@ local function CreateToggle(parent, text, flag, callback)
     end
 
     local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(0.95, 0, 0, 35)
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    frame.Size = UDim2.new(0.95, 0, 0, 42)
+    frame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    frame.BackgroundTransparency = 0.05
     frame.BorderSizePixel = 0
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 
     local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(1, -50, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
+    label.Size = UDim2.new(1, -200, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
     label.BackgroundTransparency = 1
     label.Text = text
-    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextColor3 = Color3.new(0.95, 0.95, 0.95)
     label.Font = Enum.Font.Gotham
-    label.TextSize = 13
+    label.TextSize = 12
     label.TextXAlignment = Enum.TextXAlignment.Left
 
+    local keybindBtn = Instance.new("TextButton", frame)
+    keybindBtn.Size = UDim2.new(0, 85, 0, 24)
+    keybindBtn.Position = UDim2.new(1, -145, 0.5, -12)
+    keybindBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    keybindBtn.Text = "[ None ]"
+    keybindBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    keybindBtn.Font = Enum.Font.GothamBold
+    keybindBtn.TextSize = 10
+    keybindBtn.BorderSizePixel = 0
+    Instance.new("UICorner", keybindBtn).CornerRadius = UDim.new(0, 5)
+
     local btn = Instance.new("TextButton", frame)
-    btn.Size = UDim2.new(0, 40, 0, 20)
-    btn.Position = UDim2.new(1, -50, 0.5, -10)
+    btn.Size = UDim2.new(0, 44, 0, 22)
+    btn.Position = UDim2.new(1, -52, 0.5, -11)
     btn.BackgroundColor3 = _G.XenoV5[flag] and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(50, 50, 50)
     btn.Text = ""
     Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
 
     local circle = Instance.new("Frame", btn)
-    circle.Size = UDim2.new(0, 16, 0, 16)
-    circle.Position = _G.XenoV5[flag] and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    circle.Size = UDim2.new(0, 18, 0, 18)
+    circle.Position = _G.XenoV5[flag] and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
     circle.BackgroundColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
 
-    table.insert(toggleRegistry, {flag = flag, btn = btn, circle = circle})
+    local id = "toggle_" .. flag
+
+    local keyEntry = {
+        type = "toggle",
+        flag = flag,
+        id = id,
+        key = nil,
+        btn = keybindBtn
+    }
+
+    if savedData.keybinds and savedData.keybinds[id] then
+        local savedBind = savedData.keybinds[id]
+        if savedBind.key then
+            pcall(function()
+                keyEntry.key = Enum.KeyCode[savedBind.key]
+            end)
+        end
+    end
+
+    table.insert(keybindRegistry, keyEntry)
+    table.insert(toggleRegistry, {
+        flag = flag,
+        btn = btn,
+        circle = circle,
+        callback = callback
+    })
+
+    keybindBtn.MouseButton1Click:Connect(function()
+        StartBinding(keyEntry)
+    end)
 
     btn.MouseButton1Click:Connect(function()
-        _G.XenoV5[flag] = not _G.XenoV5[flag]
-        UpdateToggleVisual(flag, _G.XenoV5[flag])
-
-        if callback then
-            callback(_G.XenoV5[flag])
-        end
+        SetFlag(flag, not _G.XenoV5[flag])
     end)
+
+    UpdateToggleVisual(flag, _G.XenoV5[flag])
+    UpdateKeybindText(keyEntry)
 
     return frame
 end
 
 local function CreateButton(parent, text, callback)
     local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.new(0.95, 0, 0, 35)
-    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    btn.Text = text
-    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Size = UDim2.new(0.95, 0, 0, 42)
+    btn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    btn.BackgroundTransparency = 0.05
+    btn.Text = "  " .. text
+    btn.TextColor3 = Color3.new(0.95, 0.95, 0.95)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 13
+    btn.TextSize = 12
     btn.BorderSizePixel = 0
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+    local keybindBtn = Instance.new("TextButton", btn)
+    keybindBtn.Size = UDim2.new(0, 85, 0, 24)
+    keybindBtn.Position = UDim2.new(1, -95, 0.5, -12)
+    keybindBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    keybindBtn.Text = "[ None ]"
+    keybindBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    keybindBtn.Font = Enum.Font.GothamBold
+    keybindBtn.TextSize = 10
+    keybindBtn.BorderSizePixel = 0
+    keybindBtn.ZIndex = 2
+    keybindBtn.Active = true
+    Instance.new("UICorner", keybindBtn).CornerRadius = UDim.new(0, 5)
+
+    local id = "button_" .. text
+
+    local keyEntry = {
+        type = "action",
+        callback = callback,
+        id = id,
+        key = nil,
+        btn = keybindBtn
+    }
+
+    if savedData.keybinds and savedData.keybinds[id] then
+        local savedBind = savedData.keybinds[id]
+        if savedBind.key then
+            pcall(function()
+                keyEntry.key = Enum.KeyCode[savedBind.key]
+            end)
+        end
+    end
+
+    table.insert(keybindRegistry, keyEntry)
+
+    keybindBtn.MouseButton1Click:Connect(function()
+        StartBinding(keyEntry)
+    end)
 
     btn.MouseButton1Click:Connect(function()
         if callback then
-            callback()
+            pcall(callback)
         end
     end)
+
+    UpdateKeybindText(keyEntry)
 
     return btn
 end
@@ -446,67 +996,196 @@ local function CreateSlider(parent, text, flag, min, max, default)
     end
 
     local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(0.95, 0, 0, 35)
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    frame.Size = UDim2.new(0.95, 0, 0, 48)
+    frame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    frame.BackgroundTransparency = 0.05
     frame.BorderSizePixel = 0
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 
     local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(0.5, 0, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
+    label.Size = UDim2.new(1, -75, 0, 20)
+    label.Position = UDim2.new(0, 10, 0, 4)
     label.BackgroundTransparency = 1
     label.Text = text
-    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextColor3 = Color3.new(0.95, 0.95, 0.95)
     label.Font = Enum.Font.Gotham
-    label.TextSize = 13
+    label.TextSize = 12
     label.TextXAlignment = Enum.TextXAlignment.Left
 
     local valLabel = Instance.new("TextLabel", frame)
-    valLabel.Size = UDim2.new(0.2, 0, 1, 0)
-    valLabel.Position = UDim2.new(0.5, 0, 0, 0)
+    valLabel.Size = UDim2.new(0, 65, 0, 20)
+    valLabel.Position = UDim2.new(1, -70, 0, 4)
     valLabel.BackgroundTransparency = 1
     valLabel.Text = tostring(_G.XenoV5[flag])
     valLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
     valLabel.Font = Enum.Font.GothamBold
-    valLabel.TextSize = 13
+    valLabel.TextSize = 12
 
-    local minusBtn = Instance.new("TextButton", frame)
-    minusBtn.Size = UDim2.new(0, 25, 0, 25)
-    minusBtn.Position = UDim2.new(1, -60, 0.5, -12.5)
-    minusBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    minusBtn.Text = "-"
-    minusBtn.TextColor3 = Color3.new(1, 1, 1)
-    local c1 = Instance.new("UICorner", minusBtn)
-    c1.CornerRadius = UDim.new(0, 6)
+    local sliderBg = Instance.new("TextButton", frame)
+    sliderBg.Size = UDim2.new(1, -22, 0, 12)
+    sliderBg.Position = UDim2.new(0, 11, 1, -20)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    sliderBg.BorderSizePixel = 0
+    sliderBg.Text = ""
+    sliderBg.AutoButtonColor = false
+    Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(1, 0)
 
-    local plusBtn = Instance.new("TextButton", frame)
-    plusBtn.Size = UDim2.new(0, 25, 0, 25)
-    plusBtn.Position = UDim2.new(1, -30, 0.5, -12.5)
-    plusBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    plusBtn.Text = "+"
-    plusBtn.TextColor3 = Color3.new(1, 1, 1)
-    local c2 = Instance.new("UICorner", plusBtn)
-    c2.CornerRadius = UDim.new(0, 6)
+    local fill = Instance.new("Frame", sliderBg)
+    fill.Size = UDim2.new(0, 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
+    fill.BorderSizePixel = 0
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
-    local function update(change)
-        local newVal = math.clamp(_G.XenoV5[flag] + change, min, max)
-        _G.XenoV5[flag] = newVal
-        valLabel.Text = tostring(newVal)
+    local knob = Instance.new("Frame", sliderBg)
+    knob.Size = UDim2.new(0, 16, 0, 16)
+    knob.BackgroundColor3 = Color3.new(1, 1, 1)
+    knob.BorderSizePixel = 0
+    knob.Position = UDim2.new(0, -8, 0.5, -8)
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    local draggingSlider = false
+
+    local function updateVisual()
+        local val = _G.XenoV5[flag] or default
+        local ratio = 0
+
+        if max ~= min then
+            ratio = (val - min) / (max - min)
+        end
+
+        ratio = math.clamp(ratio, 0, 1)
+
+        fill.Size = UDim2.new(ratio, 0, 1, 0)
+        knob.Position = UDim2.new(ratio, -8, 0.5, -8)
+        valLabel.Text = tostring(val)
     end
 
-    minusBtn.MouseButton1Click:Connect(function()
-        update(-1)
+    local function setInput(x)
+        local absPos = sliderBg.AbsolutePosition.X
+        local absSize = sliderBg.AbsoluteSize.X
+
+        if absSize <= 0 then return end
+
+        local ratio = math.clamp((x - absPos) / absSize, 0, 1)
+        local newVal = math.floor(min + ((max - min) * ratio) + 0.5)
+
+        _G.XenoV5[flag] = newVal
+        updateVisual()
+    end
+
+    sliderBg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingSlider = true
+            setInput(input.Position.X)
+        end
     end)
 
-    plusBtn.MouseButton1Click:Connect(function()
-        update(1)
+    UserInputService.InputChanged:Connect(function(input)
+        if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            setInput(input.Position.X)
+        end
     end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if draggingSlider then
+                draggingSlider = false
+                RequestSave()
+            end
+        end
+    end)
+
+    updateVisual()
+
+    return frame
+end
+
+local function CreateDropdown(parent, text, flag, options, default, callback)
+    if _G.XenoV5[flag] == nil then
+        _G.XenoV5[flag] = default
+    end
+
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(0.95, 0, 0, 42)
+    frame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    frame.BackgroundTransparency = 0.05
+    frame.BorderSizePixel = 0
+    frame.ClipsDescendants = true
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -160, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.new(0.95, 0.95, 0.95)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local dropBtn = Instance.new("TextButton", frame)
+    dropBtn.Size = UDim2.new(0, 110, 0, 24)
+    dropBtn.Position = UDim2.new(1, -122, 0.5, -12)
+    dropBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    dropBtn.Text = "  " .. tostring(_G.XenoV5[flag])
+    dropBtn.TextColor3 = Color3.fromRGB(0, 255, 128)
+    dropBtn.Font = Enum.Font.GothamBold
+    dropBtn.TextSize = 11
+    dropBtn.BorderSizePixel = 0
+    Instance.new("UICorner", dropBtn).CornerRadius = UDim.new(0, 5)
+
+    local open = false
+
+    local function refresh()
+        dropBtn.Text = "  " .. tostring(_G.XenoV5[flag])
+    end
+
+    local function setOpen(state)
+        open = state
+
+        if state then
+            frame.Size = UDim2.new(0.95, 0, 0, 42 + (#options * 26) + 8)
+        else
+            frame.Size = UDim2.new(0.95, 0, 0, 42)
+        end
+    end
+
+    for i, opt in ipairs(options) do
+        local optBtn = Instance.new("TextButton", frame)
+        optBtn.Position = UDim2.new(0, 8, 0, 42 + ((i - 1) * 26))
+        optBtn.Size = UDim2.new(1, -16, 0, 22)
+        optBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        optBtn.Text = " " .. opt
+        optBtn.TextXAlignment = Enum.TextXAlignment.Left
+        optBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+        optBtn.Font = Enum.Font.Gotham
+        optBtn.TextSize = 11
+        optBtn.BorderSizePixel = 0
+        Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 4)
+
+        optBtn.MouseButton1Click:Connect(function()
+            _G.XenoV5[flag] = opt
+            refresh()
+            setOpen(false)
+            RequestSave()
+
+            if callback then
+                pcall(callback, opt)
+            end
+        end)
+    end
+
+    dropBtn.MouseButton1Click:Connect(function()
+        setOpen(not open)
+    end)
+
+    refresh()
 
     return frame
 end
 
 -- =========================================================
--- [БАЗОВЫЕ ПРОВЕРКИ]
+-- [BASE HELPERS]
 -- =========================================================
 local function IsCharAlive(char)
     if not char or not char.Parent then return false end
@@ -517,17 +1196,17 @@ end
 
 local function HasGunEquipped()
     local char = player.Character
-    return char and char:FindFirstChild("Gun") ~= nil
+    return char and (char:FindFirstChild("Gun") ~= nil or char:FindFirstChild("Revolver") ~= nil)
 end
 
 local function HasGunAnywhere()
     local char = player.Character
-    if char and char:FindFirstChild("Gun") then
+    if char and (char:FindFirstChild("Gun") or char:FindFirstChild("Revolver")) then
         return true
     end
 
     local backpack = player:FindFirstChild("Backpack")
-    if backpack and backpack:FindFirstChild("Gun") then
+    if backpack and (backpack:FindFirstChild("Gun") or backpack:FindFirstChild("Revolver")) then
         return true
     end
 
@@ -537,6 +1216,21 @@ end
 local function HasKnifeEquipped()
     local char = player.Character
     return char and char:FindFirstChild("Knife") ~= nil
+end
+
+local function IsLocalMurderer()
+    local char = player.Character
+
+    if char and char:FindFirstChild("Knife") then
+        return true
+    end
+
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack and backpack:FindFirstChild("Knife") then
+        return true
+    end
+
+    return false
 end
 
 local function GetMurderer()
@@ -560,7 +1254,9 @@ local function GetSheriff()
             local char = p.Character
             if IsCharAlive(char) then
                 local backpack = p:FindFirstChild("Backpack")
-                if char:FindFirstChild("Gun") or (backpack and backpack:FindFirstChild("Gun")) then
+                if char:FindFirstChild("Gun")
+                    or char:FindFirstChild("Revolver")
+                    or (backpack and (backpack:FindFirstChild("Gun") or backpack:FindFirstChild("Revolver"))) then
                     return char
                 end
             end
@@ -569,53 +1265,442 @@ local function GetSheriff()
     return nil
 end
 
+local function GetMurdererPlayer()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player then
+            local char = p.Character
+            if IsCharAlive(char) then
+                local backpack = p:FindFirstChild("Backpack")
+                if char:FindFirstChild("Knife") or (backpack and backpack:FindFirstChild("Knife")) then
+                    return p
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function GetSheriffPlayer()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player then
+            local char = p.Character
+            if IsCharAlive(char) then
+                local backpack = p:FindFirstChild("Backpack")
+                if char:FindFirstChild("Gun")
+                    or char:FindFirstChild("Revolver")
+                    or (backpack and (backpack:FindFirstChild("Gun") or backpack:FindFirstChild("Revolver"))) then
+                    return p
+                end
+            end
+        end
+    end
+    return nil
+end
+
 -- =========================================================
--- [SKID FLING - ФУНКЦИЯ ОСТАВЛЕНА]
+-- [FLING WITH DIRECTION / SPEED]
 -- =========================================================
 local function SkidFling(TargetPlayer)
-    local char = player.Character
-    if not char then return end
+    local Character = Player.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+    local TCharacter = TargetPlayer.Character
+    if not TCharacter then return end
+    local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = THumanoid and THumanoid.RootPart
+    local THead = TCharacter:FindFirstChild("Head")
+    local Accessory = TCharacter:FindFirstChildOfClass("Accessory")
+    local Handle = Accessory and Accessory:FindFirstChild("Handle")
 
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local tchar = TargetPlayer and TargetPlayer.Character
-    local thrp = tchar and tchar:FindFirstChild("HumanoidRootPart")
-    local thum = tchar and tchar:FindFirstChildOfClass("Humanoid")
+    if Character and Humanoid and RootPart then
+        if RootPart.Velocity.Magnitude < 50 then getgenv().OldPos = RootPart.CFrame end
+        if THumanoid and THumanoid.Sit then return end
+        if not TCharacter:FindFirstChildWhichIsA("BasePart") then return end
 
-    if hrp and thrp and thum then
-        local oldPos = hrp.CFrame
-        local startTime = tick()
+        local mode = _G.XenoV5.FlingDirection or "Down"
+        if mode ~= "Up" and mode ~= "Side" then
+            mode = "Down"
+        end
 
-        local fly = Instance.new("BodyVelocity")
-        fly.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-        fly.Velocity = Vector3.new(0, 0, 0)
-        fly.Parent = hrp
+        local speed = math.clamp(_G.XenoV5.FlingSpeed or 500, 50, 2000)
+        local velMag = speed * 100000
+        local sideSign = math.random() < 0.5 and 1 or -1
+        local BV = nil
 
-        hum.PlatformStand = true
+        local function GetDirectionVector(basePart)
+            if mode == "Up" then
+                return Vector3.new(0, velMag, 0)
+            elseif mode == "Side" and basePart then
+                return basePart.CFrame.RightVector * (velMag * sideSign)
+            else
+                return Vector3.new(0, -velMag, 0)
+            end
+        end
 
-        repeat
-            task.wait()
-            local rot = CFrame.Angles(math.random(-360, 360), math.random(-360, 360), math.random(-360, 360))
-            local pos = thrp.CFrame * CFrame.new(0, 1.5, 0) * rot
-            hrp.CFrame = pos
-            hrp.Velocity = Vector3.new(9e7, 9e7, 9e7)
-            hrp.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
-        until not TargetPlayer or not tchar or not thrp or (thrp.Position - hrp.Position).Magnitude > 500 or tick() - startTime > 2 or not _G.XenoV5.FlingActive
+        local function GetTargetImpulse(basePart)
+            if mode == "Up" then
+                return Vector3.new(0, 10000, 0)
+            elseif mode == "Side" and basePart then
+                return basePart.CFrame.RightVector * (10000 * sideSign)
+            else
+                return Vector3.new(0, -10000, 0)
+            end
+        end
 
-        fly:Destroy()
-        hum.PlatformStand = false
-        hrp.Velocity = Vector3.new(0, 0, 0)
-        hrp.RotVelocity = Vector3.new(0, 0, 0)
+        local FPos = function(BasePart, offsetCFrame, Ang)
+            local cf = CFrame.new(BasePart.Position) * offsetCFrame * Ang
 
-        for i = 1, 5 do
-            hrp.CFrame = oldPos
-            task.wait()
+            RootPart.CFrame = cf
+            pcall(function()
+                Character:SetPrimaryPartCFrame(cf)
+            end)
+
+            local dir = GetDirectionVector(BasePart)
+
+            RootPart.Velocity = dir
+            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+
+            if BV then
+                BV.Velocity = dir
+            end
+
+            pcall(function()
+                RootPart.AssemblyLinearVelocity = dir
+                RootPart.AssemblyAngularVelocity = Vector3.new(9e8, 9e8, 9e8)
+            end)
+
+            pcall(function()
+                BasePart.Velocity = GetTargetImpulse(BasePart)
+                BasePart.RotVelocity = Vector3.new(500, 500, 500)
+            end)
+        end
+
+        local SFBasePart = function(BasePart)
+            local TimeToWait = 2
+            local Time = tick()
+            local Angle = 0
+
+            if BV then
+                BV.Velocity = GetDirectionVector(BasePart)
+            end
+
+            repeat
+                if RootPart and THumanoid then
+                    Angle = Angle + 140
+
+                    local move = THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25
+
+                    if mode == "Up" then
+                        FPos(BasePart, CFrame.new(0, -2.25, 0) + move, CFrame.Angles(math.rad(-90), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.25, 0) + move, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                    elseif mode == "Side" then
+                        local sideOffset1 = (-BasePart.CFrame.RightVector * sideSign * 2.25) + Vector3.new(0, 0.5, 0)
+                        FPos(BasePart, CFrame.new(sideOffset1) + move, CFrame.Angles(0, 0, math.rad(90 * sideSign)))
+                        task.wait()
+
+                        local sideOffset2 = (-BasePart.CFrame.RightVector * sideSign * 1.25) + Vector3.new(0, 0.25, 0)
+                        FPos(BasePart, CFrame.new(sideOffset2) + move, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                    else
+                        FPos(BasePart, CFrame.new(0, 2.25, 0) + move, CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, 1.25, 0) + move, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                    end
+                end
+            until Time + TimeToWait < tick() or not FlingActive
+        end
+
+        workspace.FallenPartsDestroyHeight = 0 / 0
+
+        BV = Instance.new("BodyVelocity", RootPart)
+        BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        BV.Velocity = GetDirectionVector(TRootPart or THead or Handle or RootPart)
+
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+
+        if TRootPart then
+            SFBasePart(TRootPart)
+        elseif THead then
+            SFBasePart(THead)
+        elseif Handle then
+            SFBasePart(Handle)
+        end
+
+        BV:Destroy()
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+
+        if getgenv().OldPos then
+            repeat
+                RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
+
+                pcall(function()
+                    Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
+                end)
+
+                pcall(function()
+                    Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                end)
+
+                for _, part in pairs(Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.Velocity, part.RotVelocity = Vector3.new(), Vector3.new()
+                    end
+                end
+
+                task.wait()
+            until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25
+
+            workspace.FallenPartsDestroyHeight = getgenv().FPDH
         end
     end
 end
 
+local function PrepareFlingOldPos()
+    pcall(function()
+        if getgenv and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if not getgenv().OldPos then
+                getgenv().OldPos = player.Character.HumanoidRootPart.CFrame
+            end
+        end
+    end)
+end
+
 -- =========================================================
--- [GUN ESP + КЭШ ПИСТОЛЕТА]
+-- [FLING MANAGER]
+-- =========================================================
+local allFlingThreadRunning = false
+local sheriffFlingThreadRunning = false
+local murdererFlingThreadRunning = false
+local manualFlingCount = 0
+
+local function RefreshFlingActive()
+    FlingActive = manualFlingCount > 0
+        or (_G.XenoV5.Fling and allFlingThreadRunning)
+        or (_G.XenoV5.FlingSheriff and sheriffFlingThreadRunning)
+        or (_G.XenoV5.FlingMurderer and murdererFlingThreadRunning)
+end
+
+local function OneShotFling(target)
+    if not target or not IsCharAlive(target.Character) then
+        Notify("NORMALNIY MM2", "Target not found!", 2)
+        return false
+    end
+
+    PrepareFlingOldPos()
+
+    manualFlingCount = manualFlingCount + 1
+    RefreshFlingActive()
+
+    pcall(function()
+        SkidFling(target)
+    end)
+
+    manualFlingCount = math.max(0, manualFlingCount - 1)
+    RefreshFlingActive()
+
+    return true
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.25)
+
+        if _G.XenoV5.Fling and not allFlingThreadRunning then
+            allFlingThreadRunning = true
+            RefreshFlingActive()
+
+            task.spawn(function()
+                pcall(function()
+                    while _G.XenoV5.Fling do
+                        local targets = {}
+
+                        for _, p in pairs(Players:GetPlayers()) do
+                            if p ~= player and IsCharAlive(p.Character) then
+                                table.insert(targets, p)
+                            end
+                        end
+
+                        if #targets == 0 then
+                            task.wait(0.5)
+                        else
+                            for _, target in pairs(targets) do
+                                if not _G.XenoV5.Fling then
+                                    break
+                                end
+
+                                PrepareFlingOldPos()
+
+                                pcall(function()
+                                    SkidFling(target)
+                                end)
+
+                                task.wait(0.1)
+                            end
+
+                            task.wait(0.3)
+                        end
+                    end
+                end)
+
+                allFlingThreadRunning = false
+                RefreshFlingActive()
+            end)
+        end
+
+        RefreshFlingActive()
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.25)
+
+        if _G.XenoV5.FlingSheriff and not sheriffFlingThreadRunning then
+            sheriffFlingThreadRunning = true
+            RefreshFlingActive()
+
+            task.spawn(function()
+                pcall(function()
+                    while _G.XenoV5.FlingSheriff do
+                        local target = GetSheriffPlayer()
+
+                        if target and IsCharAlive(target.Character) then
+                            PrepareFlingOldPos()
+
+                            pcall(function()
+                                SkidFling(target)
+                            end)
+
+                            task.wait(0.15)
+                        else
+                            task.wait(0.5)
+                        end
+                    end
+                end)
+
+                sheriffFlingThreadRunning = false
+                RefreshFlingActive()
+            end)
+        end
+
+        RefreshFlingActive()
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.25)
+
+        if _G.XenoV5.FlingMurderer and not murdererFlingThreadRunning then
+            murdererFlingThreadRunning = true
+            RefreshFlingActive()
+
+            task.spawn(function()
+                pcall(function()
+                    while _G.XenoV5.FlingMurderer do
+                        local target = GetMurdererPlayer()
+
+                        if target and IsCharAlive(target.Character) then
+                            PrepareFlingOldPos()
+
+                            pcall(function()
+                                SkidFling(target)
+                            end)
+
+                            task.wait(0.15)
+                        else
+                            task.wait(0.5)
+                        end
+                    end
+                end)
+
+                murdererFlingThreadRunning = false
+                RefreshFlingActive()
+            end)
+        end
+
+        RefreshFlingActive()
+    end
+end)
+
+-- =========================================================
+-- [FLING MURDERER IF DIED]
+-- =========================================================
+local deathFlingDebounce = false
+local connectedDeathChars = setmetatable({}, {__mode = "k"})
+
+local function TryFlingMurdererAfterDeath()
+    if not _G.XenoV5.FlingMurdererIfDied then return end
+    if deathFlingDebounce then return end
+
+    deathFlingDebounce = true
+
+    task.spawn(function()
+        pcall(function()
+            task.wait(0.25)
+
+            if not _G.XenoV5.FlingMurdererIfDied then return end
+
+            local murderer = GetMurdererPlayer()
+            if not murderer or not IsCharAlive(murderer.Character) then
+                return
+            end
+
+            local timeout = tick() + 10
+
+            local char = player.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+            while tick() < timeout and _G.XenoV5.FlingMurdererIfDied and (not char or not hum or not hrp or hum.Health <= 0) do
+                task.wait(0.1)
+                char = player.Character
+                hum = char and char:FindFirstChildOfClass("Humanoid")
+                hrp = char and char:FindFirstChild("HumanoidRootPart")
+            end
+
+            if not _G.XenoV5.FlingMurdererIfDied then return end
+
+            if char and hum and hrp and hum.Health > 0 then
+                murderer = GetMurdererPlayer()
+
+                if murderer and IsCharAlive(murderer.Character) then
+                    OneShotFling(murderer)
+                end
+            end
+        end)
+
+        deathFlingDebounce = false
+    end)
+end
+
+local function SetupDeathListenerForChar(char)
+    if not char then return end
+
+    task.spawn(function()
+        local hum = char:WaitForChild("Humanoid", 5)
+
+        if hum and not connectedDeathChars[char] then
+            connectedDeathChars[char] = true
+
+            hum.Died:Connect(function()
+                TryFlingMurdererAfterDeath()
+            end)
+        end
+    end)
+end
+
+player.CharacterAdded:Connect(function(char)
+    SetupDeathListenerForChar(char)
+end)
+
+SetupDeathListenerForChar(player.Character)
+
+-- =========================================================
+-- [GUN ESP CACHE]
 -- =========================================================
 local function CreateGunESP(gun)
     if not _G.XenoV5.ESP_Gun then return end
@@ -639,7 +1724,7 @@ local function CreateGunESP(gun)
     local text = Instance.new("TextLabel", billboard)
     text.Size = UDim2.new(1, 0, 1, 0)
     text.BackgroundTransparency = 1
-    text.Text = "Gun Dropped"
+    text.Text = "🔫 Gun Dropped"
     text.TextColor3 = Color3.fromRGB(210, 190, 255)
     text.Font = Enum.Font.GothamBold
     text.TextScaled = true
@@ -712,7 +1797,7 @@ task.defer(function()
 end)
 
 -- =========================================================
--- [ВКЛАДКИ]
+-- [TABS]
 -- =========================================================
 local tabVisuals = CreateTab("Visuals", "👁️")
 local tabCombat = CreateTab("Combat", "⚔️")
@@ -722,6 +1807,7 @@ local tabMisc = CreateTab("Misc", "⚡")
 local tabInjects = CreateTab("Injects", "💉")
 
 pages[1].Btn.TextColor3 = Color3.fromRGB(0, 255, 128)
+pages[1].Btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 pages[1].Page.Visible = true
 
 -- =========================================================
@@ -758,11 +1844,29 @@ end)
 
 CreateSection(tabVisuals, "Environment")
 CreateToggle(tabVisuals, "Fullbright", "Fullbright", function(state)
-    Lighting.Ambient = state and Color3.new(1, 1, 1) or origAmbient
-    Lighting.Brightness = state and 2 or origBrightness
+    if state then
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2
+    else
+        Lighting.Ambient = origAmbient
+        Lighting.Brightness = origBrightness
+    end
+
+    if _G.XenoV5.RealisticShaders then
+        ApplyRealisticShaders()
+    end
 end)
+
 CreateToggle(tabVisuals, "Always Day", "AlwaysDay")
 CreateToggle(tabVisuals, "Always Night", "AlwaysNight")
+CreateToggle(tabVisuals, "Realistic Shaders", "RealisticShaders", function(state)
+    if state then
+        ApplyRealisticShaders()
+    else
+        RemoveRealisticShaders()
+    end
+end)
+
 CreateSlider(tabVisuals, "Field of View", "FOV", 70, 120, 70)
 
 -- =========================================================
@@ -771,7 +1875,10 @@ CreateSlider(tabVisuals, "Field of View", "FOV", 70, 120, 70)
 CreateSection(tabCombat, "Murderer")
 CreateToggle(tabCombat, "Kill Aura (Knife Required)", "MurdererAura")
 CreateSlider(tabCombat, "Kill Aura Range", "KillAuraRange", 1, 100, 20)
-CreateToggle(tabCombat, "Fling Sheriff", "FlingMurderer")
+CreateToggle(tabCombat, "Auto Fling Sheriff (Continuous)", "FlingSheriff")
+CreateButton(tabCombat, "Fling Sheriff (One-Shot)", function()
+    OneShotFling(GetSheriffPlayer())
+end)
 
 CreateSection(tabCombat, "Sheriff")
 CreateToggle(tabCombat, "Smart Gun Aimbot (Only In Hands)", "GunAimbot")
@@ -779,14 +1886,25 @@ CreateSlider(tabCombat, "Aimbot Sharpness (1-10)", "AimbotSmooth", 1, 10, 10)
 CreateSlider(tabCombat, "Aimbot FOV Limit", "AimbotFOV", 30, 360, 360)
 CreateToggle(tabCombat, "Auto Shoot Murderer", "AutoShoot")
 CreateToggle(tabCombat, "TP To Murder", "SheriffAutoKill")
-CreateToggle(tabCombat, "Fling Murder", "FlingSheriff")
+CreateToggle(tabCombat, "Auto Fling Murderer (Continuous)", "FlingMurderer")
+CreateButton(tabCombat, "Fling Murderer (One-Shot)", function()
+    OneShotFling(GetMurdererPlayer())
+end)
 
 CreateSection(tabCombat, "General & Fling")
 CreateToggle(tabCombat, "Ultimate Fling (ALL)", "Fling")
+CreateDropdown(tabCombat, "Fling Direction", "FlingDirection", {"Down", "Up", "Side"}, "Down")
+CreateSlider(tabCombat, "Fling Speed", "FlingSpeed", 50, 2000, 500)
+CreateToggle(tabCombat, "Fling Murderer If Died", "FlingMurdererIfDied")
 CreateToggle(tabCombat, "Auto Grab Gun (Safe)", "AutoGrabGun")
 CreateToggle(tabCombat, "Expand Hitboxes", "HitboxExpander")
 
 CreateButton(tabCombat, "Safe TP to Dropped Gun", function()
+    if IsLocalMurderer() then
+        Notify("NORMALNIY MM2", "You are Murderer! Gun grab blocked.", 2)
+        return
+    end
+
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
@@ -795,7 +1913,7 @@ CreateButton(tabCombat, "Safe TP to Dropped Gun", function()
     local target = GetGunBase(gunObj)
 
     if not target then
-        Notify("Error", "Gun is not dropped yet!", 2)
+        Notify("NORMALNIY MM2", "Gun is not dropped yet!", 2)
         return
     end
 
@@ -803,13 +1921,13 @@ CreateButton(tabCombat, "Safe TP to Dropped Gun", function()
     if mdr and mdr:FindFirstChild("HumanoidRootPart") then
         local dist = (mdr.HumanoidRootPart.Position - target.Position).Magnitude
         if dist < 30 then
-            Notify("Danger", "Murderer is too close to the gun!", 3)
+            Notify("NORMALNIY MM2", "Murderer is too close to the gun!", 3)
             return
         end
     end
 
     local originalCFrame = hrp.CFrame
-    Notify("Action", "Grabbing gun...", 1)
+    Notify("NORMALNIY MM2", "Grabbing gun...", 1)
     hrp.CFrame = target.CFrame + Vector3.new(0, 2, 0)
     task.wait(0.5)
     hrp.CFrame = originalCFrame
@@ -847,20 +1965,29 @@ CreateToggle(tabWorld, "Walk on Water", "WaterWalk")
 CreateButton(tabWorld, "Teleport to Lobby", function()
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(-109, 138, 11)
-        Notify("Teleport", "Moved to Lobby", 2)
+        Notify("NORMALNIY MM2", "Moved to Lobby", 2)
     end
 end)
 
 CreateButton(tabWorld, "Teleport to Map Center", function()
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(0, 10, 0)
-        Notify("Teleport", "Moved to Map", 2)
+        Notify("NORMALNIY MM2", "Moved to Map", 2)
     end
 end)
 
 -- =========================================================
 -- [MISC]
 -- =========================================================
+CreateSection(tabMisc, "System")
+CreateToggle(tabMisc, "Save Settings", "SaveSettings", function(state)
+    SaveSettingsToggleFile(state)
+
+    if state then
+        SaveSettings(true)
+    end
+end)
+
 CreateSection(tabMisc, "Trolling")
 CreateToggle(tabMisc, "Spinbot", "Spin")
 CreateToggle(tabMisc, "Tornado Mode", "Tornado")
@@ -874,39 +2001,35 @@ CreateToggle(tabMisc, "Chat Spammer", "ChatSpam")
 CreateSection(tabInjects, "Main Injects")
 
 CreateButton(tabInjects, "Inject Bot", function()
-    Notify("Injects", "Bot Injected Successfully!", 3)
+    Notify("NORMALNIY MM2", "Bot Injected Successfully!", 3)
     pcall(function()
         loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject1.lua'))()
     end)
 end)
 
 CreateButton(tabInjects, "Tab Teleport", function()
-    Notify("Injects", "Tab Teleport Injected Successfully!", 3)
+    Notify("NORMALNIY MM2", "Tab Teleport Injected Successfully!", 3)
     pcall(function()
         loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Inject2.lua'))()
     end)
 end)
 
 CreateButton(tabInjects, "Fling Script", function()
-    Notify("Injects", "Fling Injected Successfully!", 3)
+    Notify("NORMALNIY MM2", "Fling Injected Successfully!", 3)
     pcall(function()
         loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/KILASIKFLING.lua'))()
     end)
 end)
 
-local ExtraInjectBtn = CreateButton(tabInjects, "SuperTAB", function()
-    Notify("Injects", "SuperTAB inject slot ready!", 2)
+CreateButton(tabInjects, "MultiTAB", function()
+    Notify("NORMALNIY MM2", "MultiTAB Injected Successfully!", 3)
     pcall(function()
         loadstring(game:HttpGet('https://raw.githubusercontent.com/doloword-hash/botscr54iptts.lua/refs/heads/main/Multi%20inject%203'))()
     end)
 end)
 
-local ExtraCorner = Instance.new("UICorner")
-ExtraCorner.CornerRadius = UDim.new(0, 4)
-ExtraCorner.Parent = ExtraInjectBtn
-
 -- =========================================================
--- [VISUALS / ESP / TRACERS]
+-- [VISUALS UPDATE]
 -- =========================================================
 local mdrChar, shfChar = nil, nil
 
@@ -941,7 +2064,9 @@ local function UpdateVisuals()
                 local backpack = p:FindFirstChild("Backpack")
 
                 local hasKnife = char:FindFirstChild("Knife") or (backpack and backpack:FindFirstChild("Knife"))
-                local hasGun = char:FindFirstChild("Gun") or (backpack and backpack:FindFirstChild("Gun"))
+                local hasGun = char:FindFirstChild("Gun")
+                    or char:FindFirstChild("Revolver")
+                    or (backpack and (backpack:FindFirstChild("Gun") or backpack:FindFirstChild("Revolver")))
 
                 local hl = char:FindFirstChild("XenoESP_HL")
                 if not hl then
@@ -1001,7 +2126,10 @@ local function UpdateVisuals()
                 elseif root then
                     root.Size = Vector3.new(2, 2, 1)
                     root.Transparency = 1
-                    root.CanCollide = true
+
+                    if not _G.XenoV5.AntiFling then
+                        root.CanCollide = true
+                    end
                 end
             end
         end
@@ -1292,7 +2420,7 @@ if not aimBindOK then
 end
 
 -- =========================================================
--- [ОСНОВНОЙ RENDER]
+-- [MAIN RENDER]
 -- =========================================================
 RunService.RenderStepped:Connect(function()
     pcall(function()
@@ -1302,8 +2430,11 @@ RunService.RenderStepped:Connect(function()
         HandleFly()
         HandleWaterWalk()
 
-        if _G.XenoV5.AlwaysDay then Lighting.ClockTime = 12 end
-        if _G.XenoV5.AlwaysNight then Lighting.ClockTime = 0 end
+        -- Если включены Realistic Shaders, они сами управляют временем суток
+        if not _G.XenoV5.RealisticShaders then
+            if _G.XenoV5.AlwaysDay then Lighting.ClockTime = 12 end
+            if _G.XenoV5.AlwaysNight then Lighting.ClockTime = 0 end
+        end
 
         if camera and camera.FieldOfView ~= _G.XenoV5.FOV then
             camera.FieldOfView = _G.XenoV5.FOV
@@ -1325,7 +2456,6 @@ RunService.RenderStepped:Connect(function()
         end
 
         local murderer = mdrChar or GetMurderer()
-        local sheriff = shfChar or GetSheriff()
 
         if _G.XenoV5.Tornado and IsCharAlive(murderer) then
             local mRoot = murderer:FindFirstChild("HumanoidRootPart")
@@ -1351,64 +2481,14 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        local targetFling = nil
+        local thrust = hrp:FindFirstChild("UltBodyThrust")
+        if thrust then thrust:Destroy() end
 
-        if _G.XenoV5.FlingMurderer and IsCharAlive(murderer) then
-            targetFling = murderer
-        elseif _G.XenoV5.FlingSheriff and IsCharAlive(sheriff) then
-            targetFling = sheriff
-        end
+        local spin = hrp:FindFirstChild("UltAngularVel")
+        if spin then spin:Destroy() end
 
-        if _G.XenoV5.Fling or targetFling then
-            hum.PlatformStand = true
-
-            local thrust = hrp:FindFirstChild("UltBodyThrust")
-            if not thrust then
-                thrust = Instance.new("BodyThrust")
-                thrust.Name = "UltBodyThrust"
-                thrust.Parent = hrp
-            end
-
-            thrust.Force = Vector3.new(9999, 9999, 9999)
-            thrust.Location = hrp.Position + Vector3.new(0, 1.5, 0)
-
-            local spin = hrp:FindFirstChild("UltAngularVel")
-            if not spin then
-                spin = Instance.new("BodyAngularVelocity")
-                spin.Name = "UltAngularVel"
-                spin.Parent = hrp
-            end
-
-            spin.AngularVelocity = Vector3.new(0, 99999, 0)
-            spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-
-            for _, p in pairs(char:GetChildren()) do
-                if p:IsA("BasePart") then
-                    p.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-                    p.CanCollide = false
-                end
-            end
-
-            if targetFling and targetFling:FindFirstChild("HumanoidRootPart") then
-                hrp.CFrame = targetFling.HumanoidRootPart.CFrame
-            end
-        else
-            local thrust = hrp:FindFirstChild("UltBodyThrust")
-            if thrust then thrust:Destroy() end
-
-            local spin = hrp:FindFirstChild("UltAngularVel")
-            if spin then spin:Destroy() end
-
+        if hum.PlatformStand and not flying then
             hum.PlatformStand = false
-
-            for _, p in pairs(char:GetChildren()) do
-                if p:IsA("BasePart") then
-                    p.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5)
-                    if not _G.XenoV5.Noclip then
-                        p.CanCollide = true
-                    end
-                end
-            end
         end
 
         if _G.XenoV5.SheriffAutoKill and HasGunEquipped() and IsCharAlive(murderer) then
@@ -1421,7 +2501,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =========================================================
--- [ANTI-FLING - РАБОЧИЙ КЭШИРОВАННЫЙ ВАРИАНТ]
+-- [ANTI-FLING]
 -- =========================================================
 local antiFlingParts = {}
 local antiFlingConnections = {}
@@ -1534,22 +2614,8 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- =========================================================
--- [INPUT]
+-- [CTRL CLICK TP]
 -- =========================================================
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-
-    if input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.F4 then
-        main.Visible = not main.Visible
-    end
-
-    if input.KeyCode == Enum.KeyCode.Space and _G.XenoV5.InfJump then
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
-    end
-end)
-
 mouse.Button1Down:Connect(function()
     if _G.XenoV5.CtrlClickTP and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
         if mouse.Hit and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -1584,10 +2650,6 @@ task.spawn(function()
                         local dist = (hrp.Position - targetHrp.Position).Magnitude
                         if dist <= _G.XenoV5.KillAuraRange then
                             hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 1.2)
-
-                            if camera then
-                                camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetHrp.Position)
-                            end
 
                             local center = GetScreenCenter()
                             DoMouseClickAt(center.X, center.Y)
@@ -1678,6 +2740,8 @@ task.spawn(function()
         pcall(function()
             if not _G.XenoV5.AutoGrabGun then return end
             if _G.IsTeleporting then return end
+
+            if IsLocalMurderer() then return end
             if HasGunAnywhere() then return end
 
             local char = player.Character
@@ -1742,4 +2806,4 @@ task.spawn(function()
     end
 end)
 
-Notify("Injected", "Xeno V5.7 FULL FIX loaded! Press F4 / RightShift to toggle UI.", 5)
+Notify("NORMALNIY MM2 V5.5", "NORMALNIY MM2 V5.5 loaded! Realistic dark/sunrise shaders fixed.", 5)
